@@ -17,11 +17,11 @@ exec({[S|Q],IN,OUT,EST}=STA) ->
 
 
 sem({[],_}, STA) -> STA;
-sem({[_|_]=P,CEnv}, {Q,IN,OUT,EST}) -> {lists:append(lists:map(fun(X) -> {X,CEnv} end, P), [{eraseEnv,CEnv}|Q]),IN,OUT,EST};
+sem({[_|_]=P,CEnv}, {Q,IN,OUT,EST}) -> {lists:append(lists:map(fun(X) -> {X,CEnv} end, P), Q),IN,OUT,EST};
 sem({{blk,DL,S},CEnv}, {Q,IN,OUT,EST}) ->
 	{ERef,{_,_}} = NewEnv = getNewEmptyEnv(CEnv),
 	STA1 = decVars(DL, {ERef,{Q,IN,OUT,[NewEnv|EST]}}),
-	sem({S,ERef}, STA1);
+	sem({S++[{eraseEnv}],ERef}, STA1);
 sem({{iff,E,S},CEnv}, STA) ->
 	userLogging({eval,E,CEnv}, STA),
 	{Val,{Q1,IN1,OUT1,EST1}=STA1} = evalExp(E, {CEnv,STA}),
@@ -44,14 +44,14 @@ sem({{while,E,S},CEnv}, STA) ->
 	userLogging({valu,Val}, STA1),
 	case Val of
 		{int,0} -> STA1;
-		_ -> {[{S,CEnv},{{while,E,S},CEnv},{breakPt,CEnv}|Q1],IN1,OUT1,EST1}
+		_ -> {[{S,CEnv},{{while,E,S},CEnv},{{breakPt},CEnv}|Q1],IN1,OUT1,EST1}
 	end;
-sem({breakPt,_}, STA) -> STA;
-sem({eraseEnv,CEnv}, STA) -> rmEnvByRefFromSTA(CEnv, STA);
+sem({{breakPt},_}, STA) -> STA;
+sem({{eraseEnv},CEnv}, STA) -> userLogging({eEnv,CEnv}, STA), rmEnvByRefFromSTA(CEnv, STA);
 sem({{break},_}, {Q,IN,OUT,EST}) -> 
-		{PL,BL} = lists:splitwith(fun(X) -> element(1,X)/=breakPt end, Q),
-		{_,Q1} = lists:splitwith(fun(X) -> element(1,X)==breakPt end, BL), 
-		EL = lists:filter(fun(X) -> element(1,X)==eraseEnv end, PL),
+		{PL,BL} = lists:splitwith(fun(X) -> (not is_tuple(element(1,X))) orelse element(1,element(1,X))/=breakPt end, Q),
+		{_,Q1} = lists:splitwith(fun(X) -> element(1,element(1,X))==breakPt end, BL), 
+		EL = lists:filter(fun(X) -> is_tuple(element(1,X)) andalso element(1,element(1,X))==eraseEnv end, PL),
 		EST1 = lists:foldl(fun(X,Y) -> rmEnvByRef(element(2,X), Y) end, EST, EL),
 		{Q1,IN,OUT,EST1};
 sem({{for,S1,E,S2,S3},CEnv}, STA) -> sem({{blk,[],[S1,{while,E,[S3,S2]}]},CEnv}, STA);
@@ -61,8 +61,9 @@ sem({{procDec,ProcName,PL,S},CEnv}, STA) -> semProcDec({ProcName,PL,S}, {CEnv,ST
 sem({{funcDec,RetType,FuncName,PL,S},CEnv}, STA) -> semFuncDec({FuncName,RetType,PL,S}, {CEnv,STA});
 sem({{procCall,N,PL},CEnv}, STA) -> procCall(N, PL, {CEnv,STA});
 sem({{return},_}, {Q,IN,OUT,EST}) -> 
-	{_,Q1} = lists:splitwith(fun(X) -> element(1,X)==breakPt end,element(2,PL=lists:splitwith(fun(X) -> element(1,X)/=breakPt end, Q))), 
-	EST1 = lists:foldl(fun(X,Y) -> rmEnvByRef(element(2,X), Y) end, EST, PL),
+		{PL,Q1} = lists:splitwith(fun(X) -> (not is_tuple(element(1,X))) orelse element(1,element(1,X))/=returnPt end, Q),
+		EL = lists:filter(fun(X) -> is_tuple(element(1,X)) andalso element(1,element(1,X))==eraseEnv end, PL),
+		EST1 = lists:foldl(fun(X,Y) -> rmEnvByRef(element(2,X), Y) end, EST, EL),
 	{Q1,IN,OUT,EST1};
 sem({{returnPt,Proc},CEnv}, STA) -> userLogging({retn,Proc}, STA), rmEnvByRefFromSTA(CEnv, STA);
 sem({{return,E},CEnv}, STA) ->
