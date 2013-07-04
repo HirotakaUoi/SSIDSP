@@ -1,0 +1,726 @@
+{
+	"buffers":
+	[
+		{
+			"file": "compTest.erl",
+			"settings":
+			{
+				"buffer_size": 4695,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "ssidsp7_1.erl",
+			"settings":
+			{
+				"buffer_size": 21548,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "double.erl",
+			"settings":
+			{
+				"buffer_size": 759,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "ssidsp7.erl",
+			"settings":
+			{
+				"buffer_size": 21499,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "ssidsp6_2.erl",
+			"settings":
+			{
+				"buffer_size": 18385,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "ssidsp6_1.erl",
+			"settings":
+			{
+				"buffer_size": 17540,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "ssidsp6.erl",
+			"settings":
+			{
+				"buffer_size": 15535,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "ssidsp5_2.erl",
+			"settings":
+			{
+				"buffer_size": 10293,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "ssidsp5_1.erl",
+			"settings":
+			{
+				"buffer_size": 8733,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "ssidsp5.erl",
+			"settings":
+			{
+				"buffer_size": 7887,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "ssidsp4.erl",
+			"settings":
+			{
+				"buffer_size": 6204,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "ssidsp3.erl",
+			"settings":
+			{
+				"buffer_size": 3495,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "ssidsp2_1.erl",
+			"settings":
+			{
+				"buffer_size": 2909,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "ssidsp2.erl",
+			"settings":
+			{
+				"buffer_size": 2157,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "ssidsp1.erl",
+			"settings":
+			{
+				"buffer_size": 1317,
+				"line_ending": "Unix"
+			}
+		}
+	],
+	"build_system": "Packages/C++/C++.sublime-build",
+	"command_palette":
+	{
+		"height": 392.0,
+		"selected_items":
+		[
+			[
+				"ins",
+				"Package Control: Install Package"
+			],
+			[
+				"insta",
+				"Package Control: Install Package"
+			],
+			[
+				"pack",
+				"Package Control: Install Package"
+			],
+			[
+				"list",
+				"Package Control: List Packages"
+			],
+			[
+				"Package Control: enab",
+				"Package Control: Enable Package"
+			],
+			[
+				"list packages",
+				"Package Control: List Packages"
+			]
+		],
+		"width": 449.0
+	},
+	"console":
+	{
+		"height": 125.0
+	},
+	"distraction_free":
+	{
+		"menu_visible": true,
+		"show_minimap": false,
+		"show_open_files": false,
+		"show_tabs": false,
+		"side_bar_visible": false,
+		"status_bar_visible": false
+	},
+	"file_history":
+	[
+		"/Users/Shared/Dropbox/2013 大学院 ソフトウエア構成学特論/Erlang/ssidsp_7_4.erl",
+		"/Users/Shared/Dropbox/2013 大学院 ソフトウエア構成学特論/Erlang/ssidsp_7_5_2.erl",
+		"/Users/Shared/Dropbox/2013 大学院 ソフトウエア構成学特論/Erlang/ssidsp2_1.erl",
+		"/Users/Shared/Dropbox/2013 大学院 ソフトウエア構成学特論/Erlang/ssidsp2.erl",
+		"/Users/Shared/Dropbox/2013 大学院 ソフトウエア構成学特論/Erlang/ssidsp1.erl",
+		"/Users/Shared/Dropbox/2013 大学院 ソフトウエア構成学特論/Erlang/grammerTest.erl",
+		"/Users/Shared/Dropbox/2013 大学院 ソフトウエア構成学特論/Erlang/ssidsp6_1.erl",
+		"/Users/Shared/Dropbox/2013 大学院 ソフトウエア構成学特論/Erlang/double.erl",
+		"/Users/Shared/Dropbox/2013 大学院 ソフトウエア構成学特論/Erlang/ssidsp3.erl",
+		"/Users/Shared/Dropbox/2013 大学院 ソフトウエア構成学特論/Erlang/compTempTest.erl",
+		"/Users/Shared/Dropbox/2013 大学院 ソフトウエア構成学特論/Erlang/listTest.erl",
+		"/Users/Shared/Dropbox/2013 大学院 ソフトウエア構成学特論/Erlang/grammerTest.yrl",
+		"/Users/Shared/Dropbox/2013 大学院 ソフトウエア構成学特論/Erlang/listTest.yrl",
+		"/Users/Shared/Dropbox/2013 大学院 ソフトウエア構成学特論/Erlang/nQueen.ssidsp",
+		"/Users/Shared/Erlang/compTempTest.erl",
+		"/Users/Shared/Erlang/ssidsp4.erl",
+		"/Users/presentation/Library/Application Support/Sublime Text 2/Packages/Default/Preferences.sublime-settings",
+		"/Users/presentation/Library/Application Support/Sublime Text 2/Packages/User/Preferences.sublime-settings",
+		"/Users/presentation/Library/Application Support/Sublime Text 2/Packages/User/Package Control.sublime-settings"
+	],
+	"find":
+	{
+		"height": 35.0
+	},
+	"find_in_files":
+	{
+		"height": 0.0,
+		"where_history":
+		[
+		]
+	},
+	"find_state":
+	{
+		"case_sensitive": false,
+		"find_history":
+		[
+			"decVars",
+			"CurrentEnv",
+			"trace",
+			"userLogging",
+			"or ",
+			"Res = semFilename():sem({R,IN}),",
+			"{ok,R} = yeccFilename():parse(LL),",
+			"R = yeccFilename():parse(LL),",
+			"ssidsp4",
+			"listTest",
+			"\"ssidsp4\"",
+			"\"test.ssidsp\"",
+			"\"listTest\"",
+			"semInputByFileNameRecompile",
+			"STA",
+			"ssidsp3",
+			"manual"
+		],
+		"highlight": true,
+		"in_selection": false,
+		"preserve_case": false,
+		"regex": false,
+		"replace_history":
+		[
+			"CEnv",
+			"Res = apply(semFilename(), sem, [{R,IN}]),",
+			"{ok,R} = apply(yeccFilename(), parse, [LL]),",
+			"R = apply(yeccFilename(), parse, [LL]),",
+			"semFilename()",
+			"yeccFilename()",
+			"semFilename()",
+			"testFilename()",
+			"yeccFilename()",
+			"ssidsp4"
+		],
+		"reverse": false,
+		"show_context": true,
+		"use_buffer2": true,
+		"whole_word": false,
+		"wrap": true
+	},
+	"groups":
+	[
+		{
+			"selected": 4,
+			"sheets":
+			[
+				{
+					"buffer": 0,
+					"file": "compTest.erl",
+					"settings":
+					{
+						"buffer_size": 4695,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Erlang/Erlang.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"type": "text"
+				},
+				{
+					"buffer": 1,
+					"file": "ssidsp7_1.erl",
+					"settings":
+					{
+						"buffer_size": 21548,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Erlang/Erlang.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"type": "text"
+				},
+				{
+					"buffer": 2,
+					"file": "double.erl",
+					"settings":
+					{
+						"buffer_size": 759,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Erlang/Erlang.tmLanguage",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"type": "text"
+				},
+				{
+					"buffer": 3,
+					"file": "ssidsp7.erl",
+					"settings":
+					{
+						"buffer_size": 21499,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Erlang/Erlang.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"type": "text"
+				},
+				{
+					"buffer": 4,
+					"file": "ssidsp6_2.erl",
+					"settings":
+					{
+						"buffer_size": 18385,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								272,
+								274
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Erlang/Erlang.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"type": "text"
+				},
+				{
+					"buffer": 5,
+					"file": "ssidsp6_1.erl",
+					"settings":
+					{
+						"buffer_size": 17540,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Erlang/Erlang.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"type": "text"
+				},
+				{
+					"buffer": 6,
+					"file": "ssidsp6.erl",
+					"settings":
+					{
+						"buffer_size": 15535,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Erlang/Erlang.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"type": "text"
+				},
+				{
+					"buffer": 7,
+					"file": "ssidsp5_2.erl",
+					"settings":
+					{
+						"buffer_size": 10293,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Erlang/Erlang.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"type": "text"
+				},
+				{
+					"buffer": 8,
+					"file": "ssidsp5_1.erl",
+					"settings":
+					{
+						"buffer_size": 8733,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Erlang/Erlang.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"type": "text"
+				},
+				{
+					"buffer": 9,
+					"file": "ssidsp5.erl",
+					"settings":
+					{
+						"buffer_size": 7887,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Erlang/Erlang.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"type": "text"
+				},
+				{
+					"buffer": 10,
+					"file": "ssidsp4.erl",
+					"settings":
+					{
+						"buffer_size": 6204,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Erlang/Erlang.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"type": "text"
+				},
+				{
+					"buffer": 11,
+					"file": "ssidsp3.erl",
+					"settings":
+					{
+						"buffer_size": 3495,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Erlang/Erlang.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"type": "text"
+				},
+				{
+					"buffer": 12,
+					"file": "ssidsp2_1.erl",
+					"settings":
+					{
+						"buffer_size": 2909,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Erlang/Erlang.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"type": "text"
+				},
+				{
+					"buffer": 13,
+					"file": "ssidsp2.erl",
+					"settings":
+					{
+						"buffer_size": 2157,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Erlang/Erlang.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"type": "text"
+				},
+				{
+					"buffer": 14,
+					"file": "ssidsp1.erl",
+					"settings":
+					{
+						"buffer_size": 1317,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Erlang/Erlang.tmLanguage"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"type": "text"
+				}
+			]
+		}
+	],
+	"incremental_find":
+	{
+		"height": 0.0
+	},
+	"input":
+	{
+		"height": 31.0
+	},
+	"layout":
+	{
+		"cells":
+		[
+			[
+				0,
+				0,
+				1,
+				1
+			]
+		],
+		"cols":
+		[
+			0.0,
+			1.0
+		],
+		"rows":
+		[
+			0.0,
+			1.0
+		]
+	},
+	"menu_visible": true,
+	"output.exec":
+	{
+		"height": 100.0
+	},
+	"replace":
+	{
+		"height": 64.0
+	},
+	"save_all_on_build": true,
+	"select_file":
+	{
+		"height": 0.0,
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_project":
+	{
+		"height": 500.0,
+		"selected_items":
+		[
+		],
+		"width": 380.0
+	},
+	"show_minimap": true,
+	"show_open_files": true,
+	"show_tabs": true,
+	"side_bar_visible": false,
+	"side_bar_width": 150.0,
+	"status_bar_visible": true
+}
