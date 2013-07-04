@@ -17,7 +17,7 @@ exec({[S|Q],IN,OUT,EST}=STA) ->
 
 
 sem({[],_}, STA) -> STA;
-sem({[_|_]=P,CEnv}, {Q,IN,OUT,EST}) -> {lists:append(lists:map(fun(X) -> {X,CEnv} end, P), Q),IN,OUT,EST};
+sem({[_|_]=P,CEnv}, {Q,IN,OUT,EST}) -> {lists:append(lists:map(fun(X) -> {X,CEnv} end, P), [{eraseEnv,CEnv}|Q]),IN,OUT,EST};
 sem({{blk,DL,S},CEnv}, {Q,IN,OUT,EST}) ->
 	{ERef,{_,_}} = NewEnv = getNewEmptyEnv(CEnv),
 	STA1 = decVars(DL, {ERef,{Q,IN,OUT,[NewEnv|EST]}}),
@@ -47,16 +47,24 @@ sem({{while,E,S},CEnv}, STA) ->
 		_ -> {[{S,CEnv},{{while,E,S},CEnv},{breakPt,CEnv}|Q1],IN1,OUT1,EST1}
 	end;
 sem({breakPt,_}, STA) -> STA;
-sem({break,_}, {Q,IN,OUT,EST}) -> {_,Q1} = lists:splitwith(fun(X) -> element(1,X)==breakPt end,element(2,lists:splitwith(fun(X) -> element(1,X)/=breakPt end, Q))), 
-		{Q1,IN,OUT,EST};
+sem({eraseEnv,CEnv}, STA) -> rmEnvByRefFromSTA(CEnv, STA);
+sem({{break},_}, {Q,IN,OUT,EST}) -> 
+		{PL,BL} = lists:splitwith(fun(X) -> element(1,X)/=breakPt end, Q),
+		{_,Q1} = lists:splitwith(fun(X) -> element(1,X)==breakPt end, BL), 
+		EL = lists:filter(fun(X) -> element(1,X)==eraseEnv end, PL),
+		EST1 = lists:foldl(fun(X,Y) -> rmEnvByRef(element(2,X), Y) end, EST, EL),
+		{Q1,IN,OUT,EST1};
 sem({{for,S1,E,S2,S3},CEnv}, STA) -> sem({{blk,[],[S1,{while,E,[S3,S2]}]},CEnv}, STA);
 % sem({{dim,{ary,V,L}},CEnv}, STA) -> semAry({V,L}, {CEnv,STA});
 sem({{dec,{type,int},IntDecL},CEnv}, STA) -> semIntDecL(IntDecL, {CEnv,STA});
 sem({{procDec,ProcName,PL,S},CEnv}, STA) -> semProcDec({ProcName,PL,S}, {CEnv,STA});
 sem({{funcDec,RetType,FuncName,PL,S},CEnv}, STA) -> semFuncDec({FuncName,RetType,PL,S}, {CEnv,STA});
 sem({{procCall,N,PL},CEnv}, STA) -> procCall(N, PL, {CEnv,STA});
-sem({{return},_}, {Q,IN,OUT,EST}) -> {_,Q1} = lists:splitwith(fun(X) -> element(1,X)/=returnPt end, Q), {Q1,IN,OUT,EST};
-sem({{returnPt,Proc},_}, STA) -> userLogging({retn,Proc}, STA), STA;
+sem({{return},_}, {Q,IN,OUT,EST}) -> 
+	{_,Q1} = lists:splitwith(fun(X) -> element(1,X)==breakPt end,element(2,PL=lists:splitwith(fun(X) -> element(1,X)/=breakPt end, Q))), 
+	EST1 = lists:foldl(fun(X,Y) -> rmEnvByRef(element(2,X), Y) end, EST, PL),
+	{Q1,IN,OUT,EST1};
+sem({{returnPt,Proc},CEnv}, STA) -> userLogging({retn,Proc}, STA), rmEnvByRefFromSTA(CEnv, STA);
 sem({{return,E},CEnv}, STA) ->
 	userLogging({eval,E,CEnv}, STA),
 	{Val,{Q1,IN1,OUT1,EST1}} = evalExp(E, {CEnv,STA}),
@@ -546,6 +554,9 @@ popEST([]) -> empty.
 
 topEST([Env|_]) -> Env;
 topEST([]) -> empty.
+
+rmEnvByRefFromSTA(CEnv, {Q,IN,OUT,EST}) -> {Q,IN,OUT,del(CEnv, EST)}.
+rmEnvByRef(CEnv, EST) -> del(CEnv, EST).
 
 addEnv2ESTinSTA(Env, {Q,IN,OUT,EST}) -> {Q,IN,OUT,[Env|EST]}.
 
