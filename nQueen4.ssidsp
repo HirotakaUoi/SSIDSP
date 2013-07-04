@@ -1,0 +1,61 @@
+{
+	trace(off);trace(off);
+	int size = read(); % x = read(); y = read();
+	int allNum = size*size;
+	int field[size], fieldState[allNum];
+	int queens, targetX, targetY, checkX, checkY;
+	int x, y, i, j;
+	proc clearBoard() {
+		for (i=0; i<size; i=i+1) {
+			field[i] = 0;
+		};
+		for (i=0; i<allNum; i=i+1) {
+			fieldState[i] = 0;
+		};
+%		printStatus();
+		return;
+	};
+	proc checkBoard(int j) {
+		targetY = j / size; targetX = j rem size;
+		if (fieldState[j]==0) {
+%				print(targetX, targetY, j);
+			field[targetX] = targetY; fieldState[j] = 1; queens = queens + 1;
+			checkConficts(targetX, targetY);
+		};
+		return;
+	};
+	
+	proc checkConficts(int targetX, int targetY) {
+		for (i=0; i<allNum; i=i+1) {
+			checkY = i / size; checkX = i rem size;
+			if (fieldState[i]==0) {
+				if (checkX==targetX) fieldState[i] = 2;
+				if (checkY==targetY) fieldState[i] = 2;
+				if (checkX-targetX==checkY-targetY) fieldState[i] = 2;
+				if (checkX-targetX==targetY-checkY) fieldState[i] = 2;
+			}
+		};
+		return;
+	};
+	
+	
+	for (y=0; y<size; y=y+1) {
+			 x = 0;	
+		clearBoard();
+		field[x] = y; queens = 1;
+%		printStatus();
+		
+		targetX = x; targetY = y;
+		checkConficts(targetX, targetY);
+%		halt();
+		
+		for (j=0; j<allNum; j=j+1) {
+			checkBoard(j);
+		};
+		if (queens == size ) {
+%			write(field[]);  print(field[]);
+%			for (i=size-1; i>=0; i=i-1) 
+				write(field[]);
+		}
+	}
+}.
