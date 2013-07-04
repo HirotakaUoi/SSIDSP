@@ -1,0 +1,56 @@
+{
+	size = read(); % x = read(); y = read();
+	allNum = size*size;
+	dim field[size]; dim fieldState[allNum];
+	 for (y=0; y<size; y=y+1) {
+		 x = 0;
+		for (i=0; i<size; i=i+1) {
+			field[i] = 0;
+		};
+		for (i=0; i<allNum; i=i+1) {
+			fieldState[i] = 0;
+		};
+		field[x] = y; queens = 1;
+%		printStatus();
+		
+		targetX = x; targetY = y;
+		for (i=0; i<allNum; i=i+1) {
+	%		print("ff",i);printStatus();
+			checkY = i / size; checkX = i rem size;
+			if (checkX==targetX and checkY==targetY)
+				fieldState[i] = 1;
+			if (fieldState[i]==0) {
+				if (checkX==targetX) fieldState[i] = 2;
+				if (checkY==targetY) fieldState[i] = 2;
+				if (checkX-targetX==checkY-targetY) fieldState[i] = 2;
+				if (checkX-targetX==targetY-checkY) fieldState[i] = 2;
+			};
+		};
+%		printStatus();
+		
+		for (j=0; j<allNum; j=j+1) {
+			targetY = j / size; targetX = j rem size;
+			if (fieldState[j]==0) {
+%				print(targetX, targetY, j);
+				field[targetX] = targetY; fieldState[j] = 1; queens = queens + 1;
+				for (i=0; i<allNum; i=i+1) {
+					checkY = i / size; checkX = i rem size;
+					if (fieldState[i]==0) {
+						if (checkX==targetX) fieldState[i] = 2;
+						if (checkY==targetY) fieldState[i] = 2;
+						if (checkX-targetX==checkY-targetY) fieldState[i] = 2;
+						if (checkX-targetX==targetY-checkY) fieldState[i] = 2;
+					};
+				};
+			};
+%			printStatus();
+		};
+	%		print("fg",i);printStatus();
+		for (i=size-1; i>=0; i=i-1) {
+	%			print("fh",i);printStatus();
+			write(field[i]);
+		};
+		if (queens =/= size )
+			write("Answer not found.");
+	};
+}.
