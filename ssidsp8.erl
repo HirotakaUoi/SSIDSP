@@ -1,4 +1,4 @@
--module(ssidsp7_2).
+-module(ssidsp8).
 -compile(export_all).
 
 loggingFileName() -> 'ssidsp.log'.
@@ -60,21 +60,23 @@ sem({{dec,{type,int},IntDecL},CEnv}, STA) -> semIntDecL(IntDecL, {CEnv,STA});
 sem({{procDec,ProcName,PL,S},CEnv}, STA) -> semProcDec({ProcName,PL,S}, {CEnv,STA});
 sem({{funcDec,RetType,FuncName,PL,S},CEnv}, STA) -> semFuncDec({FuncName,RetType,PL,S}, {CEnv,STA});
 sem({{procCall,N,PL},CEnv}, STA) -> procCall(N, PL, {CEnv,STA});
-sem({{return},_}, {Q,IN,OUT,EST}) -> 
+sem({{return},_}, {Q,IN,OUT,EST}=STA) -> 
 	{PL,Q1} = lists:splitwith(fun(X) -> (not is_tuple(element(1,X))) orelse element(1,element(1,X))/=returnPt end, Q),
 	EL = lists:filter(fun(X) -> is_tuple(element(1,X)) andalso element(1,element(1,X))==eraseEnv end, PL),
+	userLogging({eEnv,lists:map(fun(X) -> element(2,X) end, EL)}, STA),
 	EST1 = lists:foldl(fun(X,Y) -> rmEnvByRef(element(2,X), Y) end, EST, EL),
 	{Q1,IN,OUT,EST1};
-sem({{returnPt,Proc},CEnv}, STA) -> userLogging({retn,Proc}, STA), rmEnvByRefFromSTA(CEnv, STA);
+sem({{returnPt,Proc},CEnv}, STA) -> userLogging({eEnv,CEnv}, STA), userLogging({retn,Proc}, STA), rmEnvByRefFromSTA(CEnv, STA);
 sem({{return,E},CEnv}, STA) ->
 	userLogging({eval,E,CEnv}, STA),
 	{Val,{Q1,IN1,OUT1,EST1}=STA1} = evalExp(E, {CEnv,STA}),
 	userLogging({valu,Val}, STA1),
-	{PL,[{{functionEndPt,Func},_}|Q2]} = lists:splitwith(fun(X) -> (not is_tuple(element(1,X))) orelse element(1,element(1,X))/=functionEndPt end, Q1), 
+	{PL,[{{functionEndPt,Func},_}=F|Q2]} = lists:splitwith(fun(X) -> (not is_tuple(element(1,X))) orelse element(1,element(1,X))/=functionEndPt end, Q1), 
 	EL = lists:filter(fun(X) -> is_tuple(element(1,X)) andalso element(1,element(1,X))==eraseEnv end, PL),
-	EST2 = lists:foldl(fun(X,Y) -> rmEnvByRef(element(2,X), Y) end, EST1, EL),
+	userLogging({eEnv,lists:map(fun(X) -> element(2,X) end, [F|EL])}, STA1),
+	EST2 = lists:foldl(fun(X,Y) -> rmEnvByRef(element(2,X), Y) end, EST1, [F|EL]),
 	userLogging({retn,Func,Val}, {Q2,IN1,OUT1,EST2}),
-	{Q2,IN1,OUT1,[{returnVal,Val}|EST1]};
+	{Q2,IN1,OUT1,[{returnVal,Val}|EST2]};
 sem({{functionEndPt,Func},_}, _) -> fail(["No return statement in", Func]);
 sem({{def,V,E},CEnv}, STA) -> 
 	userLogging({eval,E,CEnv}, STA),
