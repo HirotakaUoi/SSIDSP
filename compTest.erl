@@ -3,7 +3,7 @@
 
 yeccFilename() -> 'grammerTest'.
 testFilename() -> 'test.ssidsp'.
-semFilename() -> 'ssidsp7_1'.
+semFilename() -> 'ssidsp7_2'.
 
 keywordList() -> ['else', 'call', 'while', 'proc', 'thread', 'dim', 'new', 'program',
 						'return', 'trace', 'wait', 'elseif', 'switch', 'default',
