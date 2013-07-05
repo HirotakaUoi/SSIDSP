@@ -61,16 +61,20 @@ sem({{procDec,ProcName,PL,S},CEnv}, STA) -> semProcDec({ProcName,PL,S}, {CEnv,ST
 sem({{funcDec,RetType,FuncName,PL,S},CEnv}, STA) -> semFuncDec({FuncName,RetType,PL,S}, {CEnv,STA});
 sem({{procCall,N,PL},CEnv}, STA) -> procCall(N, PL, {CEnv,STA});
 sem({{return},_}, {Q,IN,OUT,EST}) -> 
-		{PL,Q1} = lists:splitwith(fun(X) -> (not is_tuple(element(1,X))) orelse element(1,element(1,X))/=returnPt end, Q),
-		EL = lists:filter(fun(X) -> is_tuple(element(1,X)) andalso element(1,element(1,X))==eraseEnv end, PL),
-		EST1 = lists:foldl(fun(X,Y) -> rmEnvByRef(element(2,X), Y) end, EST, EL),
+	{PL,Q1} = lists:splitwith(fun(X) -> (not is_tuple(element(1,X))) orelse element(1,element(1,X))/=returnPt end, Q),
+	EL = lists:filter(fun(X) -> is_tuple(element(1,X)) andalso element(1,element(1,X))==eraseEnv end, PL),
+	EST1 = lists:foldl(fun(X,Y) -> rmEnvByRef(element(2,X), Y) end, EST, EL),
 	{Q1,IN,OUT,EST1};
 sem({{returnPt,Proc},CEnv}, STA) -> userLogging({retn,Proc}, STA), rmEnvByRefFromSTA(CEnv, STA);
 sem({{return,E},CEnv}, STA) ->
 	userLogging({eval,E,CEnv}, STA),
-	{Val,{Q1,IN1,OUT1,EST1}} = evalExp(E, {CEnv,STA}),
-	{_,[{{functionEndPt,_},_}|Q2]} = lists:splitwith(fun(X) -> element(1,X)/=functionEndPt end, Q1), 
-	{[{returnVal,Val}|Q2],IN1,OUT1,EST1};
+	{Val,{Q1,IN1,OUT1,EST1}=STA1} = evalExp(E, {CEnv,STA}),
+	userLogging({valu,Val}, STA1),
+	{PL,[{{functionEndPt,Func},_}|Q2]} = lists:splitwith(fun(X) -> (not is_tuple(element(1,X))) orelse element(1,element(1,X))/=functionEndPt end, Q1), 
+	EL = lists:filter(fun(X) -> is_tuple(element(1,X)) andalso element(1,element(1,X))==eraseEnv end, PL),
+	EST2 = lists:foldl(fun(X,Y) -> rmEnvByRef(element(2,X), Y) end, EST1, EL),
+	userLogging({retn,Func,Val}, {Q2,IN1,OUT1,EST2}),
+	{Q2,IN1,OUT1,[{returnVal,Val}|EST1]};
 sem({{functionEndPt,Func},_}, _) -> fail(["No return statement in", Func]);
 sem({{def,V,E},CEnv}, STA) -> 
 	userLogging({eval,E,CEnv}, STA),
@@ -324,6 +328,14 @@ userTrace(full, STA) ->
 userTrace(normal, STA) -> put(traceOPT,lists:delete(full, get(traceOPT))), STA;
 userTrace([_|_]=L, STA) -> put(traceSPY, L), STA;
 userTrace([], STA) -> put(traceSPY, []), STA;
+userTrace(console, STA) ->
+	OPT = get(traceOPT),
+	case lists:member(file, OPT) of
+		true -> OPT;
+		false -> put(traceOPT, [console|OPT])
+	end,
+	STA;
+userTrace(file, STA) -> put(traceOPT,lists:delete(console, get(traceOPT))), STA;
 userTrace(off, STA) ->  
 	case  get(trace) of
 		on ->
@@ -363,17 +375,31 @@ isTraceKey(S, SPY) ->
 	end.
 
 makeLog(S, STA) ->
-	Dev = get(traceDev),
-	io:format(Dev, "[ ", []),
-	io:write(Dev, calendar:universal_time()),
-	io:format(Dev, " , ", []),
-	io:write(Dev, S),
-	case lists:member(full, get(traceOPT)) of	
-		true -> io:format(Dev, " , ", []),
-				io:write(Dev, STA);
-		false -> false
-	end,
-	io:format(Dev, " ]~n", []).
+	case lists:member(console, get(traceOPT)) of 
+		true ->
+			io:format("[ ", []),
+			io:write(calendar:universal_time()),
+			io:format(" , ", []),
+			io:write(S),
+			case lists:member(full, get(traceOPT)) of	
+				true -> io:format(" , ", []),
+						io:write(STA);
+				false -> false
+			end,
+			io:format(" ]~n", []);
+		false ->
+			Dev = get(traceDev),
+			io:format(Dev, "[ ", []),
+			io:write(Dev, calendar:universal_time()),
+			io:format(Dev, " , ", []),
+			io:write(Dev, S),
+			case lists:member(full, get(traceOPT)) of	
+				true -> io:format(Dev, " , ", []),
+						io:write(Dev, STA);
+				false -> false
+			end,
+			io:format(Dev, " ]~n", [])
+	end.
 
 
 writeStream([], {_,STA}) -> STA;
@@ -433,24 +459,20 @@ funcCall(random, [E], {CEnv,STA}) ->
 	{Val,STA1} = evalExp(E, {CEnv,STA}),
 	userLogging({valu,Val}, STA1),
 	getRandom(Val, STA1);
+
+
 funcCall(FuncName, PL, {CEnv,STA}) -> 
 	Func = {func,FuncName,length(PL)},
-	{{TypeFunc,VPL,ST},_} = case chkDefESTbyKeyFromSTA(Func, STA) of
-		true -> envESTbyKeyFromSTA(Func, STA);
+	{{TypeFunc,VPL,ST},_} = case chkDefESTbyKeyFromSTA(Func, {CEnv,STA}) of
+		true -> envESTbyKeyFromSTA(Func, {CEnv,STA});
 		false -> fail(["Undefined Function", Func])
 	end,
 	{ERef,_} = NewEnv = getNewEmptyEnv(CEnv),
-	STA1 = parMatch(PL, VPL, ERef, CEnv, addEnv2ESTinSTA(NewEnv, STA)),
-	sem({ST,ERef}, STA1),
-	{{TypeVal,Val1},{IN1,OUT1,[_|EST1]}} = STA2 = try sem(ST, STA1) of
-		_ -> fail(["No return statement in", Func])
-	catch
-		throw:{return,Val,STA3} -> userLogging({retn,Val}, STA3), {Val,STA3};
-		throw:_ -> fail(["No returned value in", Func])
-	end,
+	{Q1,IN1,OUT1,EST1} = parMatch(PL, VPL, ERef, CEnv, addEnv2ESTinSTA(NewEnv, STA)),
+	{[],IN2,OUT2,[{returnVal,{TypeVal,Val}}|EST2]} = exec({[{ST,ERef}], IN1, OUT1, EST1}),
 	case TypeFunc==TypeVal of 
-		true -> userLogging({exit,ST}, STA2), {{TypeVal,Val1},{IN1,OUT1,EST1}};
-		false -> fail(["Return Value Tpe Mismatch", Func, {TypeVal,Val1}])
+		true -> userLogging({exit,ST}, {Q1,IN2,OUT2,EST2}), {{TypeVal,Val},{Q1,IN2,OUT2,EST2}};
+		false -> fail(["Return Value Tpe Mismatch", Func, {TypeVal,Val}])
 	end;
 funcCall(FuncName, PL, _) -> Func = {func,FuncName,length(PL)}, fail(["Illegal Function Call", Func]).
 
