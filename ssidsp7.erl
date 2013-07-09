@@ -385,8 +385,8 @@ writeConsle([{string,S}|L], {CEnv,STA}) ->
 	io:format(S,[]), writeConsle(L, {CEnv,STA});
 writeConsle([{pary,PName,Dim}|L], {CEnv,STA}) -> 
 	Ary = {ary,PName,Dim},
-	{{Type,_,ValAry},_} = case chkDefESTbyKeyFromSTA(Ary, STA) of
-		true -> envESTbyKeyFromSTA(Ary, STA);
+	{{Type,_,ValAry},_} = case chkDefESTbyKeyFromSTA(Ary, {CEnv,STA}) of
+		true -> envESTbyKeyFromSTA(Ary, {CEnv,STA});
 		false -> fail(["Parameter Array Not Declared", Ary])
 	end,
 	userLogging({prin,{Ary,lists:map(fun format/1,ValAry)}}, STA), 
