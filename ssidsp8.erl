@@ -2,82 +2,102 @@
 -compile(export_all).
 
 loggingFileName() -> 'ssidsp.log'.
+scheduleSW() -> a.
 
 sem({P,IN}) ->	put(trace,off), put(traceOPT,[]), put(traceSPY,[]), 
 	{A1,A2,A3} = now(), random:seed(A1, A2, A3),
 	{CEnv,_} = Env = getNewEmptyEnv([]),
-	STA = exec({[{P,CEnv}],IN,[],[Env]}), userLogging({stat,{CEnv,STA}}, STA).
+	STA = exec({[[{P,CEnv}]],IN,[],[Env]}), userLogging({stat,{CEnv,STA}}, STA).
 
+exec({[[{{program,_,P},CEnv}]],IN,OUT,EST}) -> exec({[[{P,CEnv}]],IN,OUT,EST});
 exec({[],_,_,_}=STA) -> STA;
-exec({[S|Q],IN,OUT,EST}=STA) -> 
+exec({[[]|EQ],IN,OUT,EST}) -> {EQ,IN,OUT,EST};
+exec({[[S|Q]|EQ],IN,OUT,EST}=STA) -> 
 	userLogging({exec,S}, STA),
-	STA1 = sem(S, {Q,IN,OUT,EST}), 
+	STA1 = sem(S, {[Q|EQ],IN,OUT,EST}), 
 	userLogging({exit,S}, STA1),
-	exec(STA1).
+	STA2 = shchedule(scheduleSW(), STA1),
+	exec(STA2).
+
+shchedule(_, {[],_,_,_}=STA) -> STA;
+shchedule(_, {[_],_,_,_}=STA) -> STA;
+shchedule(a, STA) -> STA;
+shchedule(b, {EQ,IN,OUT,EST}) -> {lists:reverse(EQ),IN,OUT,EST};
+shchedule(c, {[Q|EQ],IN,OUT,EST}) -> {EQ++Q,IN,OUT,EST};
+shchedule(d, {EQ,IN,OUT,EST}) -> 
+	Q = lists:nth(random:uniform(length(EQ)), EQ),
+	{[Q|lists:delete(Q,EQ)],IN,OUT,EST};
+shchedule(e, {[Q1,Q2|EQ],IN,OUT,EST}) -> {[Q2,Q1|EQ],IN,OUT,EST}.
 
 
 sem({[],_}, STA) -> STA;
-sem({[_|_]=P,CEnv}, {Q,IN,OUT,EST}) -> {lists:append(lists:map(fun(X) -> {X,CEnv} end, P), Q),IN,OUT,EST};
-sem({{blk,DL,S},CEnv}, {Q,IN,OUT,EST}) ->
+sem({[_|_]=P,CEnv}, {[Q|EQ],IN,OUT,EST}) -> {[lists:append(lists:map(fun(X) -> {X,CEnv} end, P), Q)|EQ],IN,OUT,EST};
+sem({{blk,DL,S},CEnv}, {EQ,IN,OUT,EST}) ->
 	{ERef,{_,_}} = NewEnv = getNewEmptyEnv(CEnv),
-	STA1 = decVars(DL, {ERef,{Q,IN,OUT,[NewEnv|EST]}}),
+	STA1 = decVars(DL, {ERef,{EQ,IN,OUT,[NewEnv|EST]}}),
 	sem({S++[{eraseEnv}],ERef}, STA1);
 sem({{iff,E,S},CEnv}, STA) ->
 	userLogging({eval,E,CEnv}, STA),
-	{Val,{Q1,IN1,OUT1,EST1}=STA1} = evalExp(E, {CEnv,STA}),
+	{Val,{[Q1|EQ],IN1,OUT1,EST1}=STA1} = evalExp(E, {CEnv,STA}),
 	userLogging({valu,Val}, STA1),
 	case Val of
 		{int,0} -> STA1;
-		_ -> {[{S,CEnv}|Q1],IN1,OUT1,EST1}
+		_ -> {[[{S,CEnv}|Q1]|EQ],IN1,OUT1,EST1}
 	end;
 sem({{ifelse,E,S1,S2},CEnv}, STA) ->
 	userLogging({eval,E,CEnv}, STA),
-	{Val,{Q1,IN1,OUT1,EST1}=STA1} = evalExp(E, {CEnv,STA}),
+	{Val,{[Q1|EQ],IN1,OUT1,EST1}=STA1} = evalExp(E, {CEnv,STA}),
 	userLogging({valu,Val}, STA1),
 	case Val of
-		{int,0} -> {[{S2,CEnv}|Q1],IN1,OUT1,EST1};
-		_ -> {[{S1,CEnv}|Q1],IN1,OUT1,EST1}
+		{int,0} -> {[[{S2,CEnv}|Q1]|EQ],IN1,OUT1,EST1};
+		_ -> {[[{S1,CEnv}|Q1]|EQ],IN1,OUT1,EST1}
 	end;
 sem({{while,E,S},CEnv}, STA) ->
 	userLogging({eval,E,CEnv}, STA),
-	{Val,{Q1,IN1,OUT1,EST1}=STA1} = evalExp(E, {CEnv,STA}),
+	{Val,{[Q1|EQ],IN1,OUT1,EST1}=STA1} = evalExp(E, {CEnv,STA}),
 	userLogging({valu,Val}, STA1),
 	case Val of
 		{int,0} -> STA1;
-		_ -> {[{S,CEnv},{{while,E,S},CEnv},{{breakPt},CEnv}|Q1],IN1,OUT1,EST1}
+		_ -> {[[{S,CEnv},{{while,E,S},CEnv},{{breakPt},CEnv}|Q1]|EQ],IN1,OUT1,EST1}
 	end;
 sem({{breakPt},_}, STA) -> STA;
 sem({{eraseEnv},CEnv}, STA) -> userLogging({eEnv,CEnv}, STA), rmEnvByRefFromSTA(CEnv, STA);
-sem({{break},_}, {Q,IN,OUT,EST}) -> 
+sem({{break},_}, {[Q|EQ],IN,OUT,EST}) -> 
 		{PL,BL} = lists:splitwith(fun(X) -> (not is_tuple(element(1,X))) orelse element(1,element(1,X))/=breakPt end, Q),
 		{_,Q1} = lists:splitwith(fun(X) -> element(1,element(1,X))==breakPt end, BL), 
 		EL = lists:filter(fun(X) -> is_tuple(element(1,X)) andalso element(1,element(1,X))==eraseEnv end, PL),
 		EST1 = lists:foldl(fun(X,Y) -> rmEnvByRef(element(2,X), Y) end, EST, EL),
-		{Q1,IN,OUT,EST1};
+		{[Q1|EQ],IN,OUT,EST1};
 sem({{for,S1,E,S2,S3},CEnv}, STA) -> sem({{blk,[],[S1,{while,E,[S3,S2]}]},CEnv}, STA);
 % sem({{dim,{ary,V,L}},CEnv}, STA) -> semAry({V,L}, {CEnv,STA});
 sem({{dec,{type,int},IntDecL},CEnv}, STA) -> semIntDecL(IntDecL, {CEnv,STA});
 sem({{procDec,ProcName,PL,S},CEnv}, STA) -> semProcDec({ProcName,PL,S}, {CEnv,STA});
 sem({{funcDec,RetType,FuncName,PL,S},CEnv}, STA) -> semFuncDec({FuncName,RetType,PL,S}, {CEnv,STA});
 sem({{procCall,N,PL},CEnv}, STA) -> procCall(N, PL, {CEnv,STA});
-sem({{return},_}, {Q,IN,OUT,EST}=STA) -> 
+sem({{return},_}, {[Q|EQ],IN,OUT,EST}=STA) -> 
 	{PL,Q1} = lists:splitwith(fun(X) -> (not is_tuple(element(1,X))) orelse element(1,element(1,X))/=returnPt end, Q),
 	EL = lists:filter(fun(X) -> is_tuple(element(1,X)) andalso element(1,element(1,X))==eraseEnv end, PL),
 	userLogging({eEnv,lists:map(fun(X) -> element(2,X) end, EL)}, STA),
 	EST1 = lists:foldl(fun(X,Y) -> rmEnvByRef(element(2,X), Y) end, EST, EL),
-	{Q1,IN,OUT,EST1};
+	{[Q1|EQ],IN,OUT,EST1};
 sem({{returnPt,Proc},CEnv}, STA) -> userLogging({eEnv,CEnv}, STA), userLogging({retn,Proc}, STA), rmEnvByRefFromSTA(CEnv, STA);
 sem({{return,E},CEnv}, STA) ->
 	userLogging({eval,E,CEnv}, STA),
-	{Val,{Q1,IN1,OUT1,EST1}=STA1} = evalExp(E, {CEnv,STA}),
+	{Val,{[Q1|EQ],IN1,OUT1,EST1}=STA1} = evalExp(E, {CEnv,STA}),
 	userLogging({valu,Val}, STA1),
 	{PL,[{{functionEndPt,Func},_}=F|Q2]} = lists:splitwith(fun(X) -> (not is_tuple(element(1,X))) orelse element(1,element(1,X))/=functionEndPt end, Q1), 
 	EL = lists:filter(fun(X) -> is_tuple(element(1,X)) andalso element(1,element(1,X))==eraseEnv end, PL),
 	userLogging({eEnv,lists:map(fun(X) -> element(2,X) end, [F|EL])}, STA1),
 	EST2 = lists:foldl(fun(X,Y) -> rmEnvByRef(element(2,X), Y) end, EST1, [F|EL]),
 	userLogging({retn,Func,Val}, {Q2,IN1,OUT1,EST2}),
-	{Q2,IN1,OUT1,[{returnVal,Val}|EST2]};
+	{[Q2|EQ],IN1,OUT1,[{returnVal,Val}|EST2]};
 sem({{functionEndPt,Func},_}, _) -> fail(["No return statement in", Func]);
+sem({{thread,S},CEnv}, {EQ,IN,OUT,EST}) -> userLogging({thrd,S,CEnv}, STA), {[[{S,CEnv}]|EQ],IN,OUT,EST};
+sem({{wait},CEnv}, {EQ,IN,OUT,EST}) -> 
+	case EQ of
+		[] -> {[],IN,OUT,EST};
+		_ -> {[[{wait},CEnv}]|EQ],IN,OUT,EST};
+	end;
 sem({{def,V,E},CEnv}, STA) -> 
 	userLogging({eval,E,CEnv}, STA),
 	{Val,STA1} = evalExp(E, {CEnv,STA}),
@@ -87,7 +107,7 @@ sem({{trace,OPT},_}, STA) -> userTrace(OPT, STA);
 sem(S, _) -> fail(["Illegal Statement", S]).
 
 
-semDef({var,_}=Var, {TypeVal,Val}, {CEnv,{Q,IN,OUT,EST}}) -> 
+semDef({var,_}=Var, {TypeVal,Val}, {CEnv,{EQ,IN,OUT,EST}}) -> 
 	NewEST = case chkDefESTbyKey(Var, {CEnv,EST}) of
 		true -> {{Type,_},{VEnvRef,{PEnvRef,Env}}}  = envESTbyKey(Var, {CEnv,EST}),
 			case Type==TypeVal of
@@ -97,10 +117,10 @@ semDef({var,_}=Var, {TypeVal,Val}, {CEnv,{Q,IN,OUT,EST}}) ->
 			replaceESTbyKey(VEnvRef, EST, {VEnvRef,{PEnvRef,[{Var,{TypeVal,Val}}|del(Var, Env)]}});
 		false -> fail(["Not Declared", Var])
 	end,	
-	{Q,IN,OUT,NewEST};
+	{EQ,IN,OUT,NewEST};
 semDef({ary,V,[E]}, {TypeVal,Val}, {CEnv,STA}) -> 
 	userLogging({eval,E,CEnv}, STA),
-	{{TypeInd,Ind},{Q1,IN1,OUT1,EST1}=STA1} = evalExp(E, {CEnv,STA}),
+	{{TypeInd,Ind},{EQ1,IN1,OUT1,EST1}=STA1} = evalExp(E, {CEnv,STA}),
 	userLogging({valu,{TypeInd,Ind}}, STA1),
 	Ary = {ary,V,1},
 	case TypeInd of
@@ -120,7 +140,7 @@ semDef({ary,V,[E]}, {TypeVal,Val}, {CEnv,STA}) ->
 		false -> fail(["Index out of range", Ary, Ind])
 	end,
 	NewEST = replaceESTbyKey(AEnvRef, EST1, {AEnvRef,{PEnvRef,[{Ary,{Type,[MaxAry],NewValAry}}|del(Ary, Env)]}}),
-	{Q1,IN1,OUT1,NewEST};
+	{EQ1,IN1,OUT1,NewEST};
 semDef(Var, Val, _) -> fail(["Illegal Assignment", Var, Val]).
 
 semIntDecL([], {_,STA}) -> STA;
@@ -440,7 +460,7 @@ writeConsle([{pary,PName,Dim}|L], {CEnv,STA}) ->
 	writeConsle(L, {CEnv,STA});
 writeConsle([E|L], {CEnv,STA}) -> 
 	userLogging({eval,E,CEnv}, STA),
-	{Val,STA1} = evalExp(E, STA), 
+	{Val,STA1} = evalExp(E, {CEnv,STA}), 
 	userLogging({valu,Val}, STA1),
 	userLogging({prin,format(Val)}, STA1),
 	io:format("~p ",[format(Val)]), 
@@ -470,18 +490,18 @@ funcCall(FuncName, PL, {CEnv,STA}) ->
 		false -> fail(["Undefined Function", Func])
 	end,
 	{ERef,_} = NewEnv = getNewEmptyEnv(CEnv),
-	{Q1,IN1,OUT1,EST1} = parMatch(PL, VPL, ERef, CEnv, addEnv2ESTinSTA(NewEnv, STA)),
-	{[],IN2,OUT2,[{returnVal,{TypeVal,Val}}|EST2]} = exec({[{ST,ERef}], IN1, OUT1, EST1}),
+	{[Q1|EQ1],IN1,OUT1,EST1} = parMatch(PL, VPL, ERef, CEnv, addEnv2ESTinSTA(NewEnv, STA)),
+	{EQ2,IN2,OUT2,[{returnVal,{TypeVal,Val}}|EST2]} = exec({[[{ST,ERef}]|EQ1], IN1, OUT1, EST1}),
 	case TypeFunc==TypeVal of 
-		true -> userLogging({exit,ST}, {Q1,IN2,OUT2,EST2}), {{TypeVal,Val},{Q1,IN2,OUT2,EST2}};
+		true -> userLogging({exit,ST}, {[Q1|EQ2],IN2,OUT2,EST2}), {{TypeVal,Val},{[Q1|EQ2],IN2,OUT2,EST2}};
 		false -> fail(["Return Value Tpe Mismatch", Func, {TypeVal,Val}])
 	end;
 funcCall(FuncName, PL, _) -> Func = {func,FuncName,length(PL)}, fail(["Illegal Function Call", Func]).
 
 readStream({_,[],_,_}) -> fail(["Nothing to Read"]);
-readStream({Q,[T|IN],OUT,EST}=STA) -> 
+readStream({EQ,[T|IN],OUT,EST}=STA) -> 
 	case T of
-		Num when is_integer(Num) -> userLogging({read,{int,Num}}, STA), {{int,Num},{Q,IN,OUT,EST}};
+		Num when is_integer(Num) -> userLogging({read,{int,Num}}, STA), {{int,Num},{EQ,IN,OUT,EST}};
 		_ -> fail(["Illigal Form from Input Stream", T])
 	end.
 
@@ -580,13 +600,13 @@ popEST([]) -> empty.
 topEST([Env|_]) -> Env;
 topEST([]) -> empty.
 
-rmEnvByRefFromSTA(CEnv, {Q,IN,OUT,EST}) -> {Q,IN,OUT,del(CEnv, EST)}.
+rmEnvByRefFromSTA(CEnv, {EQ,IN,OUT,EST}) -> {EQ,IN,OUT,del(CEnv, EST)}.
 rmEnvByRef(CEnv, EST) -> del(CEnv, EST).
 
-addEnv2ESTinSTA(Env, {Q,IN,OUT,EST}) -> {Q,IN,OUT,[Env|EST]}.
+addEnv2ESTinSTA(Env, {EQ,IN,OUT,EST}) -> {EQ,IN,OUT,[Env|EST]}.
 
-replaceESTbyKeyInSTA(Key, {Q,IN,OUT,EST}, NewEnv) -> 
-	{Q,IN,OUT,replaceESTbyKey(Key, EST, NewEnv)}.
+replaceESTbyKeyInSTA(Key, {EQ,IN,OUT,EST}, NewEnv) -> 
+	{EQ,IN,OUT,replaceESTbyKey(Key, EST, NewEnv)}.
 
 replaceESTbyKey(Key, EST, NewEnv) ->
 	case chkDef(Key, EST) of
