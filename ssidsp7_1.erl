@@ -440,7 +440,7 @@ writeConsle([{pary,PName,Dim}|L], {CEnv,STA}) ->
 	writeConsle(L, {CEnv,STA});
 writeConsle([E|L], {CEnv,STA}) -> 
 	userLogging({eval,E,CEnv}, STA),
-	{Val,STA1} = evalExp(E, STA), 
+	{Val,STA1} = evalExp(E, {CEnv,STA}), 
 	userLogging({valu,Val}, STA1),
 	userLogging({prin,format(Val)}, STA1),
 	io:format("~p ",[format(Val)]), 
