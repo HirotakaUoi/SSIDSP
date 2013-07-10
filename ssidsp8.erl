@@ -2,7 +2,7 @@
 -compile(export_all).
 
 loggingFileName() -> 'ssidsp.log'.
-scheduleSW() -> a.
+scheduleSW() -> e.
 
 sem({P,IN}) ->	put(trace,off), put(traceOPT,[]), put(traceSPY,[]), 
 	{A1,A2,A3} = now(), random:seed(A1, A2, A3),
@@ -11,7 +11,7 @@ sem({P,IN}) ->	put(trace,off), put(traceOPT,[]), put(traceSPY,[]),
 
 exec({[[{{program,_,P},CEnv}]],IN,OUT,EST}) -> exec({[[{P,CEnv}]],IN,OUT,EST});
 exec({[],_,_,_}=STA) -> STA;
-exec({[[]|EQ],IN,OUT,EST}) -> {EQ,IN,OUT,EST};
+exec({[[]|EQ],IN,OUT,EST}) -> exec({EQ,IN,OUT,EST});
 exec({[[S|Q]|EQ],IN,OUT,EST}=STA) -> 
 	userLogging({exec,S}, STA),
 	STA1 = sem(S, {[Q|EQ],IN,OUT,EST}), 
@@ -23,10 +23,11 @@ shchedule(_, {[],_,_,_}=STA) -> STA;
 shchedule(_, {[_],_,_,_}=STA) -> STA;
 shchedule(a, STA) -> STA;
 shchedule(b, {EQ,IN,OUT,EST}) -> {lists:reverse(EQ),IN,OUT,EST};
-shchedule(c, {[Q|EQ],IN,OUT,EST}) -> {EQ++Q,IN,OUT,EST};
+shchedule(c, {[Q|EQ],IN,OUT,EST}) -> {EQ++[Q],IN,OUT,EST};
 shchedule(d, {EQ,IN,OUT,EST}) -> 
 	Q = lists:nth(random:uniform(length(EQ)), EQ),
-	{[Q|lists:delete(Q,EQ)],IN,OUT,EST};
+	STA = {[Q|lists:delete(Q,EQ)],IN,OUT,EST};
+	% io:write([Q|lists:delete(Q,EQ)]), STA;
 shchedule(e, {[Q1,Q2|EQ],IN,OUT,EST}) -> {[Q2,Q1|EQ],IN,OUT,EST}.
 
 
@@ -92,11 +93,11 @@ sem({{return,E},CEnv}, STA) ->
 	userLogging({retn,Func,Val}, {Q2,IN1,OUT1,EST2}),
 	{[Q2|EQ],IN1,OUT1,[{returnVal,Val}|EST2]};
 sem({{functionEndPt,Func},_}, _) -> fail(["No return statement in", Func]);
-sem({{thread,S},CEnv}, {EQ,IN,OUT,EST}) -> userLogging({thrd,S,CEnv}, STA), {[[{S,CEnv}]|EQ],IN,OUT,EST};
-sem({{wait},CEnv}, {EQ,IN,OUT,EST}) -> 
+sem({{thread,S},CEnv}, {EQ,IN,OUT,EST}=STA) -> userLogging({thrd,S,CEnv}, STA), {[[{S,CEnv}]|EQ],IN,OUT,EST};
+sem({{wait},CEnv}, {[Q|EQ],IN,OUT,EST}) -> 
 	case EQ of
-		[] -> {[],IN,OUT,EST};
-		_ -> {[[{wait},CEnv}]|EQ],IN,OUT,EST};
+		[] -> {[Q],IN,OUT,EST};
+		_ -> {[[{{wait},CEnv}|Q]|EQ],IN,OUT,EST}
 	end;
 sem({{def,V,E},CEnv}, STA) -> 
 	userLogging({eval,E,CEnv}, STA),
@@ -451,8 +452,8 @@ writeConsle([{string,S}|L], {CEnv,STA}) ->
 	io:format(S,[]), writeConsle(L, {CEnv,STA});
 writeConsle([{pary,PName,Dim}|L], {CEnv,STA}) -> 
 	Ary = {ary,PName,Dim},
-	{{Type,_,ValAry},_} = case chkDefESTbyKeyFromSTA(Ary, STA) of
-		true -> envESTbyKeyFromSTA(Ary, STA);
+	{{Type,_,ValAry},_} = case chkDefESTbyKeyFromSTA(Ary, {CEnv,STA}) of
+		true -> envESTbyKeyFromSTA(Ary, {CEnv,STA});
 		false -> fail(["Parameter Array Not Declared", Ary])
 	end,
 	userLogging({prin,{Ary,lists:map(fun format/1,ValAry)}}, STA), 
@@ -463,7 +464,7 @@ writeConsle([E|L], {CEnv,STA}) ->
 	{Val,STA1} = evalExp(E, {CEnv,STA}), 
 	userLogging({valu,Val}, STA1),
 	userLogging({prin,format(Val)}, STA1),
-	io:format("~p ",[format(Val)]), 
+	io:format("~p",[format(Val)]), 
 	writeConsle(L, {CEnv,STA1}).
 
 format({int,N}) -> N;
@@ -600,8 +601,10 @@ popEST([]) -> empty.
 topEST([Env|_]) -> Env;
 topEST([]) -> empty.
 
-rmEnvByRefFromSTA(CEnv, {EQ,IN,OUT,EST}) -> {EQ,IN,OUT,del(CEnv, EST)}.
-rmEnvByRef(CEnv, EST) -> del(CEnv, EST).
+% rmEnvByRefFromSTA(CEnv, {EQ,IN,OUT,EST}) -> {EQ,IN,OUT,del(CEnv, EST)}.
+rmEnvByRefFromSTA(CEnv, {EQ,IN,OUT,EST}) -> {EQ,IN,OUT,EST}.
+% rmEnvByRef(CEnv, EST) -> del(CEnv, EST).
+rmEnvByRef(CEnv, EST) -> EST.
 
 addEnv2ESTinSTA(Env, {EQ,IN,OUT,EST}) -> {EQ,IN,OUT,[Env|EST]}.
 
