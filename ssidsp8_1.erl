@@ -9,7 +9,7 @@ sem({P,IN}) ->	put(trace,off), put(traceOPT,[]), put(traceSPY,[]),
 	{CEnv,_} = Env = getNewEmptyEnv([]),
 	ExQ = pushST2ExQ(getNewEmptyExQ([]), {P,CEnv}),
 	STA = {_,_,OUT,_} = exec({[ExQ],IN,[],[Env]}), 
-	% userLogging({stat,{CEnv,STA}}, STA), 
+	userLogging({stat,{CEnv,STA}}, STA), 
 	STA.
 
 exec({[{CExQ,{PRef,ChL,[{{program,_,P},CEnv}]}}],IN,OUT,EST}) -> exec({[{CExQ,{PRef,ChL,[{P,CEnv}]}}],IN,OUT,EST});
@@ -608,10 +608,10 @@ popEST([]) -> empty.
 topEST([Env|_]) -> Env;
 topEST([]) -> empty.
 
-% rmEnvByRefFromSTA(CEnv, {EQ,IN,OUT,EST}) -> {EQ,IN,OUT,del(CEnv, EST)}.
-% rmEnvByRef(CEnv, EST) -> del(CEnv, EST).
-rmEnvByRefFromSTA(_, {EQ,IN,OUT,EST}) -> {EQ,IN,OUT,EST}.
-rmEnvByRef(_, EST) -> EST.
+rmEnvByRefFromSTA(CEnv, {EQ,IN,OUT,EST}) -> {EQ,IN,OUT,del(CEnv, EST)}.
+rmEnvByRef(CEnv, EST) -> del(CEnv, EST).
+% rmEnvByRefFromSTA(_, {EQ,IN,OUT,EST}) -> {EQ,IN,OUT,EST}.
+% rmEnvByRef(_, EST) -> EST.
 
 addEnv2ESTinSTA(Env, {EQ,IN,OUT,EST}) -> {EQ,IN,OUT,[Env|EST]}.
 
