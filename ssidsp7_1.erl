@@ -474,7 +474,7 @@ funcCall(FuncName, PL, {CEnv,STA}) ->
 	{[],IN2,OUT2,[{returnVal,{TypeVal,Val}}|EST2]} = exec({[{ST,ERef}], IN1, OUT1, EST1}),
 	case TypeFunc==TypeVal of 
 		true -> userLogging({exit,ST}, {Q1,IN2,OUT2,EST2}), {{TypeVal,Val},{Q1,IN2,OUT2,EST2}};
-		false -> fail(["Return Value Tpe Mismatch", Func, {TypeVal,Val}])
+		false -> fail(["Return Value Type Mismatch", Func, {TypeVal,Val}])
 	end;
 funcCall(FuncName, PL, _) -> Func = {func,FuncName,length(PL)}, fail(["Illegal Function Call", Func]).
 
