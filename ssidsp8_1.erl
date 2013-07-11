@@ -2,7 +2,7 @@
 -compile(export_all).
 
 loggingFileName() -> 'ssidsp.log'.
-scheduleSW() -> c.
+scheduleSW() -> d.
 
 sem({P,IN}) ->	put(trace,off), put(traceOPT,[]), put(traceSPY,[]), 
 	{A1,A2,A3} = now(), random:seed(A1, A2, A3),
@@ -628,7 +628,10 @@ chkDefESTbyKeyFromSTA(Key, {CEnv,{_,_,_,EST}}) -> chkDefESTbyKey(Key, {CEnv,EST}
 
 chkDefESTbyKey(_, {[],_}) -> false;
 chkDefESTbyKey(Key, {CEnv,EST}) ->
-	{PEnvRef,Env} = proplists:get_value(CEnv, EST),
+	{PEnvRef,Env} = case proplists:get_value(CEnv, EST) of
+		undefined -> fail(["Not found specified Env in EST", {CEnv,EST}]);
+		E -> E
+	end,
 	case chkDef(Key, Env) of
 		true -> true;
 		false -> chkDefESTbyKey(Key, {PEnvRef,EST})
