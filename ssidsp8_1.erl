@@ -10,16 +10,21 @@ sem({P,IN}) ->	put(trace,off), put(traceOPT,[]), put(traceSPY,[]),
 	ExQ = pushST2ExQ(getNewEmptyExQ([]), {P,CEnv}),
 	STA = {_,_,OUT,_} = exec({[ExQ],IN,[],[Env]}), 
 	userLogging({stat,{CEnv,STA}}, STA), 
-	STA.
+	OUT.
 
 exec({[{CExQ,{PRef,ChL,[{{program,_,P},CEnv}]}}],IN,OUT,EST}) -> exec({[{CExQ,{PRef,ChL,[{P,CEnv}]}}],IN,OUT,EST});
 exec({[],_,_,_}=STA) -> STA;
-exec({[{CExQ,{PRef,_,[]}}|EQL],IN,OUT,EST}) ->
-	EQL1 = rmThreadRefFormParentExQinEQL(PRef, CExQ, EQL),
-	exec({EQL1,IN,OUT,EST});
+exec({[{CExQ,{PRef,ChL,[{{returnVal,Val},CEnv}|_]}}|EQL],IN,OUT,EST}) ->
+	{[{returnVal,CExQ,Val}|EQL],IN,OUT,EST};
+exec({[{CExQ,{PRef,ChL,[]}}|EQL],IN,OUT,EST}=STA) ->
+	case ChL of
+		[] -> % io:write({PRef, CExQ, EQL}), io:nl(), 
+			EQL1 = rmThreadRefFormParentExQinEQL(PRef, CExQ, EQL), exec({EQL1,IN,OUT,EST});
+		_ -> exec(shchedule(scheduleSW(), STA))
+	end;
 exec({[{CExQ,{PRef,ChL,[S|Q]}}|EQL],IN,OUT,EST}=STA) -> 
 	userLogging({exec,S}, STA),
-	STA1 = sem(S, {[{CExQ,{PRef,ChL,Q}}|EQL],IN,OUT,EST}), 
+	STA1 = sem({S,CExQ}, {[{CExQ,{PRef,ChL,Q}}|EQL],IN,OUT,EST}), 
 	userLogging({exit,S}, STA1),
 	STA2 = shchedule(scheduleSW(), STA1),
 	exec(STA2).
@@ -29,93 +34,103 @@ shchedule(_, {[_],_,_,_}=STA) -> STA;
 shchedule(a, STA) -> STA;
 shchedule(b, {EQL,IN,OUT,EST}) -> {lists:reverse(EQL),IN,OUT,EST};
 shchedule(c, {[Q|EQL],IN,OUT,EST}) -> {EQL++[Q],IN,OUT,EST};
-shchedule(d, {EQL,IN,OUT,EST}) -> 
+shchedule(d, {EQL,IN,OUT,EST}) ->
 	Q = lists:nth(random:uniform(length(EQL)), EQL),
 	{[Q|lists:delete(Q,EQL)],IN,OUT,EST};
 shchedule(e, {[Q1,Q2|EQL],IN,OUT,EST}) -> {[Q2,Q1|EQL],IN,OUT,EST}.
 
 
-sem({[],_}, STA) -> STA;
-sem({[_|_]=P,CEnv}, STA) -> pushST2ExQinSTA(lists:map(fun(X) -> {X,CEnv} end, P), STA);
-sem({{blk,DL,S},CEnv}, {EQL,IN,OUT,EST}) ->
+sem({{[],_},_}, STA) -> STA;
+sem({{[_|_]=P,CEnv},CExQ}, STA) -> pushST2ExQinSTA(lists:map(fun(X) -> {X,CEnv} end, P), {CExQ,STA});
+sem({{{blk,DL,S},CEnv},CExQ}, {EQL,IN,OUT,EST}) ->
 	{ERef,{_,_}} = NewEnv = getNewEmptyEnv(CEnv),
-	STA1 = decVars(DL, {ERef,{EQL,IN,OUT,[NewEnv|EST]}}),
-	sem({S++[{eraseEnv}],ERef}, STA1);
-sem({{iff,E,S},CEnv}, STA) ->
+	STA1 = decVars(DL, {CExQ,{ERef,{EQL,IN,OUT,[NewEnv|EST]}}}),
+	sem({{S++[{eraseEnv}],ERef},CExQ}, STA1);
+sem({{{iff,E,S},CEnv},CExQ}, STA) ->
 	userLogging({eval,E,CEnv}, STA),
-	{Val,STA1} = evalExp(E, {CEnv,STA}),
+	{Val,STA1} = evalExp(E, {CExQ,{CEnv,STA}}),
 	userLogging({valu,Val}, STA1),
 	case Val of
 		{int,0} -> STA1;
-		_ -> pushST2ExQinSTA({S,CEnv}, STA1)
+		_ -> pushST2ExQinSTA({S,CEnv}, {CExQ,STA1})
 	end;
-sem({{ifelse,E,S1,S2},CEnv}, STA) ->
+sem({{{ifelse,E,S1,S2},CEnv},CExQ}, STA) ->
 	userLogging({eval,E,CEnv}, STA),
-	{Val,STA1} = evalExp(E, {CEnv,STA}),
+	{Val,STA1} = evalExp(E, {CExQ,{CEnv,STA}}),
 	userLogging({valu,Val}, STA1),
 	case Val of
-		{int,0} -> pushST2ExQinSTA({S2,CEnv}, STA1);
-		_ -> pushST2ExQinSTA({S1,CEnv}, STA1)
+		{int,0} -> pushST2ExQinSTA({S2,CEnv}, {CExQ,STA1});
+		_ -> pushST2ExQinSTA({S1,CEnv}, {CExQ,STA1})
 	end;
-sem({{while,E,S},CEnv}, STA) ->
+sem({{{while,E,S},CEnv},CExQ}, STA) ->
 	userLogging({eval,E,CEnv}, STA),
-	{Val,STA1} = evalExp(E, {CEnv,STA}),
+	{Val,STA1} = evalExp(E, {CExQ,{CEnv,STA}}),
 	userLogging({valu,Val}, STA1),
 	case Val of
 		{int,0} -> STA1;
-		_ -> pushST2ExQinSTA([{S,CEnv},{{while,E,S},CEnv},{{breakPt},CEnv}], STA1)
+		_ -> pushST2ExQinSTA([{S,CEnv},{{while,E,S},CEnv},{{breakPt},CEnv}], {CExQ,STA1})
 	end;
-sem({{breakPt},_}, STA) -> STA;
-sem({{eraseEnv},CEnv}, STA) -> userLogging({eEnv,CEnv}, STA), rmEnvByRefFromSTA(CEnv, STA);
-sem({{break},_}, {[{CExQ,{PRef,ChL,Q}}|EQL],IN,OUT,EST}) -> 
+sem({{{breakPt},_},_}, STA) -> STA;
+sem({{{eraseEnv},CEnv},_}, STA) -> userLogging({eEnv,CEnv}, STA), rmEnvByRefFromSTA(CEnv, STA);
+sem({{{break},_},CExQ}, {EQL,IN,OUT,EST}) -> 
+		{CExQ,{PRef,ChL,Q}} = getExQByRef(CExQ, EQL),
 		{PL,BL} = lists:splitwith(fun(X) -> (not is_tuple(element(1,X))) orelse element(1,element(1,X))/=breakPt end, Q),
 		{_,Q1} = lists:splitwith(fun(X) -> element(1,element(1,X))==breakPt end, BL), 
 		EL = lists:filter(fun(X) -> is_tuple(element(1,X)) andalso element(1,element(1,X))==eraseEnv end, PL),
 		EST1 = lists:foldl(fun(X,Y) -> rmEnvByRef(element(2,X), Y) end, EST, EL),
-		{[{CExQ,{PRef,ChL,Q1}}|EQL],IN,OUT,EST1};
-sem({{for,S1,E,S2,S3},CEnv}, STA) -> sem({{blk,[],[S1,{while,E,[S3,S2]}]},CEnv}, STA);
+		EQL1 = replaceEQLbyKey(CExQ, EQL, {CExQ,{PRef,ChL,Q1}}),
+		{EQL1,IN,OUT,EST1};
+sem({{{for,S1,E,S2,S3},CEnv},CExQ}, STA) -> sem({{{blk,[],[S1,{while,E,[S3,S2]}]},CEnv},CExQ}, STA);
 % sem({{dim,{ary,V,L}},CEnv}, STA) -> semAry({V,L}, {CEnv,STA});
-sem({{dec,{type,int},IntDecL},CEnv}, STA) -> semIntDecL(IntDecL, {CEnv,STA});
-sem({{procDec,ProcName,PL,S},CEnv}, STA) -> semProcDec({ProcName,PL,S}, {CEnv,STA});
-sem({{funcDec,RetType,FuncName,PL,S},CEnv}, STA) -> semFuncDec({FuncName,RetType,PL,S}, {CEnv,STA});
-sem({{procCall,N,PL},CEnv}, STA) -> procCall(N, PL, {CEnv,STA});
-sem({{return},_}, {[{CExQ,{PRef,ChL,Q}}|EQL],IN,OUT,EST}=STA) -> 
+sem({{{dec,{type,int},IntDecL},CEnv},CExQ}, STA) -> semIntDecL(IntDecL, {CExQ,{CEnv,STA}});
+sem({{{procDec,ProcName,PL,S},CEnv},_}, STA) -> semProcDec({ProcName,PL,S}, {CEnv,STA});
+sem({{{funcDec,RetType,FuncName,PL,S},CEnv},_}, STA) -> semFuncDec({FuncName,RetType,PL,S}, {CEnv,STA});
+sem({{{procCall,N,PL},CEnv},CExQ}, STA) -> procCall(N, PL, {CExQ,{CEnv,STA}});
+sem({{{return},_},CExQ}, {EQL,IN,OUT,EST}=STA) -> 
+	{CExQ,{PRef,ChL,Q}} = getExQByRef(CExQ, EQL),
 	{PL,Q1} = lists:splitwith(fun(X) -> (not is_tuple(element(1,X))) orelse element(1,element(1,X))/=returnPt end, Q),
 	EL = lists:filter(fun(X) -> is_tuple(element(1,X)) andalso element(1,element(1,X))==eraseEnv end, PL),
 	userLogging({eEnv,lists:map(fun(X) -> element(2,X) end, EL)}, STA),
 	EST1 = lists:foldl(fun(X,Y) -> rmEnvByRef(element(2,X), Y) end, EST, EL),
-	{[{CExQ,{PRef,ChL,Q1}}|EQL],IN,OUT,EST1};
-sem({{returnPt,Proc},CEnv}, STA) -> userLogging({eEnv,CEnv}, STA), userLogging({retn,Proc}, STA), rmEnvByRefFromSTA(CEnv, STA);
-sem({{return,E},CEnv}, STA) ->
+	EQL1 = replaceEQLbyKey(CExQ, EQL, {CExQ,{PRef,ChL,Q1}}),
+	{EQL1,IN,OUT,EST1};
+sem({{{returnPt,Proc},CEnv},_}, STA) -> userLogging({eEnv,CEnv}, STA), userLogging({retn,Proc}, STA), rmEnvByRefFromSTA(CEnv, STA);
+sem({{{return,E},CEnv},CExQ}, STA) ->
 	userLogging({eval,E,CEnv}, STA),
-	{Val,{[{CExQ,{PRef,ChL,Q1}}|EQL1],IN1,OUT1,EST1}=STA1} = evalExp(E, {CEnv,STA}),
+	{Val,{EQL1,IN1,OUT1,EST1}=STA1} = evalExp(E, {CExQ,{CEnv,STA}}),
+	{CExQ,{PRef,ChL,Q1}} = getExQByRef(CExQ, EQL1),
 	userLogging({valu,Val}, STA1),
 	{PL,[{{functionEndPt,Func},_}=F|Q2]} = lists:splitwith(fun(X) -> (not is_tuple(element(1,X))) orelse element(1,element(1,X))/=functionEndPt end, Q1), 
 	EL = lists:filter(fun(X) -> is_tuple(element(1,X)) andalso element(1,element(1,X))==eraseEnv end, PL),
 	userLogging({eEnv,lists:map(fun(X) -> element(2,X) end, [F|EL])}, STA1),
 	EST2 = lists:foldl(fun(X,Y) -> rmEnvByRef(element(2,X), Y) end, EST1, [F|EL]),
-	userLogging({retn,Func,Val}, {{CExQ,{PRef,ChL,Q2}},IN1,OUT1,EST2}),
-	{[{CExQ,{PRef,ChL,Q2}}|EQL1],IN1,OUT1,[{returnVal,Val}|EST2]};
+	userLogging({retn,Func,Val}, {EQL1,IN1,OUT1,EST2}),
+	EQL2 = replaceEQLbyKey(CExQ, EQL1, {CExQ,{PRef,ChL,[{{returnVal,Val},CEnv}|Q2]}}),
+	{EQL2,IN1,OUT1,EST2};
+sem({{returnVal,_}=ST,CExQ}, STA) -> pushST2ExQinSTA(ST, {CExQ,STA});
 sem({{functionEndPt,Func},_}, _) -> fail(["No return statement in", Func]);
-sem({{thread,S},CEnv}, {[{CExQ,{PRef,ChL,Q}}|EQL],IN,OUT,EST}=STA) -> 
+sem({{{thread,S},CEnv},CExQ}, {EQL,IN,OUT,EST}=STA) -> 
+	{CExQ,{PRef,ChL,Q}} = getExQByRef(CExQ, EQL),
 	userLogging({thrd,S,CEnv}, STA), 
 	{ExRef,_} = ExQ = pushST2ExQ(getNewEmptyExQ(CExQ), {S,CEnv}),
-	{[ExQ,{CExQ,{PRef,[ExRef|ChL],Q}}|EQL],IN,OUT,EST};
-sem({{wait},CEnv}, {[{_,{_,ChL,_}}|_],_,_,_}=STA) -> 
+	EQL1 = replaceEQLbyKey(CExQ, EQL, {CExQ,{PRef,[ExRef|ChL],Q}}),
+	{[ExQ|EQL1],IN,OUT,EST};
+sem({{{wait},CEnv},CExQ}, STA) -> 
+	{CExQ,{_,ChL,_}} = getExQByRefFromSTA(CExQ, STA),
 	case ChL of
-		[] -> STA;
-		_ -> pushST2ExQinSTA({{wait},CEnv}, STA)
+		[] -> userLogging({wext,CExQ,ChL}, STA), STA;
+		_ -> userLogging({wait,CExQ,ChL}, STA), pushST2ExQinSTA({{wait},CEnv}, {CExQ,STA})
 	end;
-sem({{def,V,E},CEnv}, STA) -> 
+sem({{{def,V,E},CEnv},CExQ}, STA) -> 
 	userLogging({eval,E,CEnv}, STA),
-	{Val,STA1} = evalExp(E, {CEnv,STA}),
+	{Val,STA1} = evalExp(E, {CExQ,{CEnv,STA}}),
 	userLogging({valu,Val}, STA1),
-	semDef(V, Val, {CEnv,STA1});
-sem({{trace,OPT},_}, STA) -> userTrace(OPT, STA);
+	semDef(V, Val, {CExQ,{CEnv,STA1}});
+sem({{{trace,OPT},_},_}, STA) -> userTrace(OPT, STA);
 sem(S, _) -> fail(["Illegal Statement", S]).
 
 
-semDef({var,_}=Var, {TypeVal,Val}, {CEnv,{EQ,IN,OUT,EST}}) -> 
+semDef({var,_}=Var, {TypeVal,Val}, {_,{CEnv,{EQ,IN,OUT,EST}}}) -> 
 	NewEST = case chkDefESTbyKey(Var, {CEnv,EST}) of
 		true -> {{Type,_},{VEnvRef,{PEnvRef,Env}}}  = envESTbyKey(Var, {CEnv,EST}),
 			case Type==TypeVal of
@@ -126,9 +141,9 @@ semDef({var,_}=Var, {TypeVal,Val}, {CEnv,{EQ,IN,OUT,EST}}) ->
 		false -> fail(["Not Declared", Var])
 	end,	
 	{EQ,IN,OUT,NewEST};
-semDef({ary,V,[E]}, {TypeVal,Val}, {CEnv,STA}) -> 
+semDef({ary,V,[E]}, {TypeVal,Val}, {CExQ,{CEnv,STA}}) -> 
 	userLogging({eval,E,CEnv}, STA),
-	{{TypeInd,Ind},{EQ1,IN1,OUT1,EST1}=STA1} = evalExp(E, {CEnv,STA}),
+	{{TypeInd,Ind},{EQ1,IN1,OUT1,EST1}=STA1} = evalExp(E, {CExQ,{CEnv,STA}}),
 	userLogging({valu,{TypeInd,Ind}}, STA1),
 	Ary = {ary,V,1},
 	case TypeInd of
@@ -151,28 +166,29 @@ semDef({ary,V,[E]}, {TypeVal,Val}, {CEnv,STA}) ->
 	{EQ1,IN1,OUT1,NewEST};
 semDef(Var, Val, _) -> fail(["Illegal Assignment", Var, Val]).
 
-semIntDecL([], {_,STA}) -> STA;
-semIntDecL([IntDec|L], {CEnv,STA}) -> STA1 = semIntDec(IntDec, {CEnv,STA}), semIntDecL(L, {CEnv,STA1}).
+semIntDecL([], {_,{_,STA}}) -> STA;
+semIntDecL([IntDec|L], {CExQ,{CEnv,STA}}) -> STA1 = semIntDec(IntDec, {CExQ,{CEnv,STA}}), semIntDecL(L, {CExQ,{CEnv,STA1}}).
 
-semIntDec({init,{def,{var,_}=Var,E}}, {CEnv,STA}) -> 
+semIntDec({init,{def,{var,_}=Var,E}}, {CExQ,{CEnv,STA}}) -> 
 	userLogging({eval,E,CEnv}, STA),
-	{{Type,Val},STA1} = evalExp(E, {CEnv,STA}),
+	{{Type,Val},STA1} = evalExp(E, {CExQ,{CEnv,STA}}),
 	userLogging({valu,{Type,Val}}, STA1),
 	case Type==int of
 		true -> true;
 		false -> fail(["Type mismatch", Var, int, {Type,Val}])
 	end,
-	STA2 = decVars([Var], {CEnv,STA1}),
-	semDef(Var, {Type,Val}, {CEnv,STA2});
-semIntDec({init,{def,{ary,V,DM},E}}, {CEnv,STA}) ->
+	STA2 = decVars([Var], {CExQ,{CEnv,STA1}}),
+	semDef(Var, {Type,Val}, {CExQ,{CEnv,STA2}});
+semIntDec({init,{def,{ary,V,DM},E}}, {CExQ,{CEnv,STA}}) ->
 	userLogging({eval,E,CEnv}, STA),
-	{Val,STA1} = evalExp(E, {CEnv,STA}),
+	{Val,STA1} = evalExp(E, {CExQ,{CEnv,STA}}),
 	userLogging({valu,Val}, STA1),
-	decVars([{ary,V,DM,Val}], {CEnv,STA1});
+	decVars([{ary,V,DM,Val}], {CExQ,{CEnv,STA1}});
 semIntDec(Var, STA) -> decVars([Var], STA).
 
-evalExp({int,Num}, {_,STA}) -> {{int,Num},STA};
-evalExp({var,_}=Var, {CEnv,STA}) -> 
+
+evalExp({int,Num}, {_,{_,STA}}) -> {{int,Num},STA};
+evalExp({var,_}=Var, {_,{CEnv,STA}}) -> 
 	{{Type,VarVal},_} = case chkDefESTbyKeyFromSTA(Var, {CEnv,STA}) of
 		true -> envESTbyKeyFromSTA(Var, {CEnv,STA});
 		false -> fail(["Not defined", Var])
@@ -181,8 +197,8 @@ evalExp({var,_}=Var, {CEnv,STA}) ->
 		undefined -> fail(["Not defined", Var]);
 		_ -> {{Type,VarVal},STA}
 	end;
-evalExp({ary,V,[E]}, {CEnv,STA}) -> 
-	{{TypeInd,Ind},STA1} = evalExp(E, {CEnv,STA}),
+evalExp({ary,V,[E]}, {CExQ,{CEnv,STA}}) -> 
+	{{TypeInd,Ind},STA1} = evalExp(E, {CExQ,{CEnv,STA}}),
 	Ary = {ary,V,1},
 	case TypeInd of
 		int -> true;
@@ -203,31 +219,31 @@ evalExp({ary,V,[E]}, {CEnv,STA}) ->
 			fail(["Not defined", {V,Type,1,Ind}]);
 		true -> {{Type,VarVal},STA1}
 	end;
-evalExp({add,E1,E2}, {CEnv,_}=STA) -> {{int,Num1},STA1} = evalExp(E1, STA), {{int,Num2},STA2} = evalExp(E2, {CEnv,STA1}), {{int,Num1+Num2},STA2};
-evalExp({sub,E1,E2}, {CEnv,_}=STA) -> {{int,Num1},STA1} = evalExp(E1, STA), {{int,Num2},STA2} = evalExp(E2, {CEnv,STA1}), {{int,Num1-Num2},STA2};
-evalExp({mul,E1,E2}, {CEnv,_}=STA) -> {{int,Num1},STA1} = evalExp(E1, STA), {{int,Num2},STA2} = evalExp(E2, {CEnv,STA1}), {{int,Num1*Num2},STA2};
-evalExp({divd,E1,E2}, {CEnv,_}=STA) -> {{int,Num1},STA1} = evalExp(E1, STA), {{int,Num2},STA2} = evalExp(E2, {CEnv,STA1}), {{int,Num1 div Num2},STA2};
-evalExp({remm,E1,E2}, {CEnv,_}=STA) -> {{int,Num1},STA1} = evalExp(E1, STA), {{int,Num2},STA2} = evalExp(E2, {CEnv,STA1}), {{int,Num1 rem Num2},STA2};
-evalExp({eq,E1,E2}, {CEnv,_}=STA) -> {{int,Num1},STA1} = evalExp(E1, STA), {{int,Num2},STA2} = evalExp(E2, {CEnv,STA1}), {{int,eq(Num1, Num2)},STA2};
-evalExp({neq,E1,E2}, {CEnv,_}=STA) -> {{int,Num1},STA1} = evalExp(E1, STA), {{int,Num2},STA2} = evalExp(E2, {CEnv,STA1}), {{int,neq(Num1, Num2)},STA2};
-evalExp({gt,E1,E2}, {CEnv,_}=STA) -> {{int,Num1},STA1} = evalExp(E1, STA), {{int,Num2},STA2} = evalExp(E2, {CEnv,STA1}), {{int,gt(Num1, Num2)},STA2};
-evalExp({gte,E1,E2}, {CEnv,_}=STA) -> {{int,Num1},STA1} = evalExp(E1, STA), {{int,Num2},STA2} = evalExp(E2, {CEnv,STA1}), {{int,gte(Num1, Num2)},STA2};
-evalExp({lt,E1,E2}, {CEnv,_}=STA) -> {{int,Num1},STA1} = evalExp(E1, STA), {{int,Num2},STA2} = evalExp(E2, {CEnv,STA1}), {{int,lt(Num1, Num2)},STA2};
-evalExp({lte,E1,E2}, {CEnv,_}=STA) -> {{int,Num1},STA1} = evalExp(E1, STA), {{int,Num2},STA2} = evalExp(E2, {CEnv,STA1}), {{int,lte(Num1, Num2)},STA2};
-evalExp({andd,E1,E2}, {CEnv,_}=STA) -> 
+evalExp({add,E1,E2}, {CExQ,{CEnv,_}}=STA) -> {{int,Num1},STA1} = evalExp(E1, STA), {{int,Num2},STA2} = evalExp(E2, {CExQ,{CEnv,STA1}}), {{int,Num1+Num2},STA2};
+evalExp({sub,E1,E2}, {CExQ,{CEnv,_}}=STA) -> {{int,Num1},STA1} = evalExp(E1, STA), {{int,Num2},STA2} = evalExp(E2, {CExQ,{CEnv,STA1}}), {{int,Num1-Num2},STA2};
+evalExp({mul,E1,E2}, {CExQ,{CEnv,_}}=STA) -> {{int,Num1},STA1} = evalExp(E1, STA), {{int,Num2},STA2} = evalExp(E2, {CExQ,{CEnv,STA1}}), {{int,Num1*Num2},STA2};
+evalExp({divd,E1,E2}, {CExQ,{CEnv,_}}=STA) -> {{int,Num1},STA1} = evalExp(E1, STA), {{int,Num2},STA2} = evalExp(E2, {CExQ,{CEnv,STA1}}), {{int,Num1 div Num2},STA2};
+evalExp({remm,E1,E2}, {CExQ,{CEnv,_}}=STA) -> {{int,Num1},STA1} = evalExp(E1, STA), {{int,Num2},STA2} = evalExp(E2, {CExQ,{CEnv,STA1}}), {{int,Num1 rem Num2},STA2};
+evalExp({eq,E1,E2}, {CExQ,{CEnv,_}}=STA) -> {{int,Num1},STA1} = evalExp(E1, STA), {{int,Num2},STA2} = evalExp(E2, {CExQ,{CEnv,STA1}}), {{int,eq(Num1, Num2)},STA2};
+evalExp({neq,E1,E2}, {CExQ,{CEnv,_}}=STA) -> {{int,Num1},STA1} = evalExp(E1, STA), {{int,Num2},STA2} = evalExp(E2, {CExQ,{CEnv,STA1}}), {{int,neq(Num1, Num2)},STA2};
+evalExp({gt,E1,E2}, {CExQ,{CEnv,_}}=STA) -> {{int,Num1},STA1} = evalExp(E1, STA), {{int,Num2},STA2} = evalExp(E2, {CExQ,{CEnv,STA1}}), {{int,gt(Num1, Num2)},STA2};
+evalExp({gte,E1,E2}, {CExQ,{CEnv,_}}=STA) -> {{int,Num1},STA1} = evalExp(E1, STA), {{int,Num2},STA2} = evalExp(E2, {CExQ,{CEnv,STA1}}), {{int,gte(Num1, Num2)},STA2};
+evalExp({lt,E1,E2}, {CExQ,{CEnv,_}}=STA) -> {{int,Num1},STA1} = evalExp(E1, STA), {{int,Num2},STA2} = evalExp(E2, {CExQ,{CEnv,STA1}}), {{int,lt(Num1, Num2)},STA2};
+evalExp({lte,E1,E2}, {CExQ,{CEnv,_}}=STA) -> {{int,Num1},STA1} = evalExp(E1, STA), {{int,Num2},STA2} = evalExp(E2, {CExQ,{CEnv,STA1}}), {{int,lte(Num1, Num2)},STA2};
+evalExp({andd,E1,E2}, {CExQ,{CEnv,_}}=STA) -> 
 	{{int,Num1},STA1} = evalExp(E1, STA), 
 	case Num1==0 of
 		true -> {{int,0},STA1};
-		false -> {{int,Num2},STA2} = evalExp(E2, {CEnv,STA1}), 
+		false -> {{int,Num2},STA2} = evalExp(E2, {CExQ,{CEnv,STA1}}), 
 			case Num2==0 of
 				true -> {{int,0},STA2};
 				false -> {{int,1},STA2}
 			end
 	end;
-evalExp({orr,E1,E2}, {CEnv,_}=STA) -> 
+evalExp({orr,E1,E2}, {CExQ,{CEnv,_}}=STA) -> 
 	{{int,Num1},STA1} = evalExp(E1, STA), 
 	case Num1==0 of
-		true -> {{int,Num2},STA2} = evalExp(E2, {CEnv,STA1}), 
+		true -> {{int,Num2},STA2} = evalExp(E2, {CExQ,{CEnv,STA1}}), 
 			case Num2==0 of
 				true -> {{int,0},STA2};
 				false -> {{int,1},STA2}
@@ -239,7 +255,7 @@ evalExp({nott,E}, STA) -> {{int,Num},STA1} = evalExp(E, STA),
 		true -> {{int,1},STA1}; 
 		false -> {{int,0},STA1}
 	end;
-evalExp({funcCall,N,PL}=S, {CEnv,STA}) -> userLogging({exec,S,CEnv}, STA), {Val,STA1} = funcCall(N, PL, {CEnv,STA}), userLogging({exit,S,Val}, STA1), {Val,STA1} ;
+evalExp({funcCall,N,PL}=S, {CExQ,{CEnv,STA}}) -> userLogging({exec,S,CEnv}, STA), {Val,STA1} = funcCall(N, PL, {CExQ,{CEnv,STA}}), userLogging({exit,S,Val}, STA1), {Val,STA1} ;
 evalExp(E, _) -> fail(["Bad Expression", E]).
 
 eq(V1, V2) -> case V1 == V2 of true -> 1; false -> 0 end.
@@ -248,6 +264,7 @@ gt(V1, V2) -> case V1 > V2 of true -> 1; false -> 0 end.
 gte(V1, V2) -> case V1 >= V2 of true -> 1; false -> 0 end.
 lt(V1, V2) -> case V1 < V2 of true -> 1; false -> 0 end.
 lte(V1, V2) -> case V1 =< V2 of true -> 1; false -> 0 end.
+
 
 semProcDec({ProcName,PL,S}, {CEnv,STA}) ->
 	Proc = {proc,ProcName,length(PL)},
@@ -281,30 +298,30 @@ procCall(write, PL, STA) -> writeStream(PL, STA);
 procCall(print, PL, STA) -> writeConsle(PL, STA);
 procCall(printStatus, [], STA) -> printStatus(STA);
 procCall(halt, [], STA) -> userHalt(STA);
-procCall(ProcName, PL, {CEnv,STA}) -> 
+procCall(ProcName, PL, {CExQ,{CEnv,STA}}) -> 
 	Proc = {proc,ProcName,length(PL)},
 	{{VPL,ST},_} = case chkDefESTbyKeyFromSTA(Proc, {CEnv,STA}) of
 			true -> envESTbyKeyFromSTA(Proc, {CEnv,STA});
 			false -> fail(["Undefined Procedure", Proc])
 		end,
 	{ERef,_} = NewEnv = getNewEmptyEnv(CEnv),
-	STA1 = parMatch(PL, VPL, ERef, CEnv, addEnv2ESTinSTA(NewEnv, STA)),
-	sem({ST,ERef}, STA1);
+	STA1 = parMatch(PL, VPL, ERef, CEnv, {CExQ,addEnv2ESTinSTA(NewEnv, STA)}),
+	sem({{ST,ERef},CExQ}, STA1);
 procCall(ProcName, PL, _) -> Proc = {proc,ProcName,length(PL)}, fail(["Illegal Procedure Call", Proc]).
 
 
-parMatch([], [], _, _, STA) -> STA;
-parMatch([{pary,_,_}=PAry|PL], [{_,{pary,_}}=VPAry|VPL], ERef, CEnv, STA) -> 
-	STA1 = parMatchAry(PAry, VPAry, ERef, CEnv, STA),
-	parMatch(PL, VPL, ERef, CEnv, STA1);
-parMatch([E|PL], [{_,{var,_}}=VPVar|VPL], ERef, CEnv, STA) -> 
-	STA1 = parMatchVar(E, VPVar, ERef, CEnv, STA),
-	parMatch(PL, VPL, ERef, CEnv, STA1);
+parMatch([], [], _, _, {_,STA}) -> STA;
+parMatch([{pary,_,_}=PAry|PL], [{_,{pary,_}}=VPAry|VPL], ERef, CEnv, {CExQ,STA}) -> 
+	STA1 = parMatchAry(PAry, VPAry, ERef, CEnv, {CExQ,STA}),
+	parMatch(PL, VPL, ERef, CEnv, {CExQ,STA1});
+parMatch([E|PL], [{_,{var,_}}=VPVar|VPL], ERef, CEnv, {CExQ,STA}) -> 
+	STA1 = parMatchVar(E, VPVar, ERef, CEnv, {CExQ,STA}),
+	parMatch(PL, VPL, ERef, CEnv, {CExQ,STA1});
 parMatch(PL, VPL, _, _, _) -> fail(["Parameter List Mismatch in Procedure", {PL,VPL}]).
 
-parMatchVar(E, {Type,{var,_}=Var}, ERef, CEnv, STA) ->
+parMatchVar(E, {Type,{var,_}=Var}, ERef, CEnv, {CExQ,STA}) ->
 	userLogging({eval,E, CEnv}, STA),
-	{{ValType,Val},STA1} = evalExp(E, {CEnv,STA}),
+	{{ValType,Val},STA1} = evalExp(E, {CExQ,{CEnv,STA}}),
 	userLogging({valu,{ValType,Val}}, STA1),
 	case Type==ValType of
 		true -> true;
@@ -316,7 +333,7 @@ parMatchVar(E, {Type,{var,_}=Var}, ERef, CEnv, STA) ->
 		false -> replaceESTbyKeyInSTA(ERef, STA, {ERef,{PEnvRef,[{Var,{ValType,Val}}|Env]}})
 	end.
 
-parMatchAry({pary,PName,D}, {VPType,{pary,VPName}}, ERef, CEnv, STA) ->
+parMatchAry({pary,PName,D}, {VPType,{pary,VPName}}, ERef, CEnv, {_,STA}) ->
 	Ary = {ary,PName,D},
 	{ERef,{PEnvRef,Env}} = getEnvByRefFromSTA(ERef, STA),
 	case chkDef({ary,VPName,D}, Env) of
@@ -426,38 +443,39 @@ makeLog(S, STA) ->
 			case lists:member(full, get(traceOPT)) of	
 				true -> io:format(Dev, " , ", []),
 						io:write(Dev, STA);
+				% false -> {EQL,_,_,_} = STA, io:format(Dev, " , ", []), io:nl(Dev), io:write(Dev, EQL), false
 				false -> false
 			end,
 			io:format(Dev, " ]~n", [])
 	end.
 
 
-writeStream([], {_,STA}) -> STA;
-writeStream([{string,S}|L], {CEnv,STA}) -> 
+writeStream([], {_,{_,STA}}) -> STA;
+writeStream([{string,S}|L], {CExQ,{CEnv,STA}}) -> 
 	userLogging({writ,list_to_atom(S)}, STA), 
-	writeStream(L, {CEnv,appendOUTinSTA(list_to_atom(S), STA)});
-writeStream([{pary,PName,Dim}|L], {CEnv,STA}) -> 
+	writeStream(L, {CExQ,{CEnv,appendOUTinSTA(list_to_atom(S), STA)}});
+writeStream([{pary,PName,Dim}|L], {CExQ,{CEnv,STA}}) -> 
 	Ary = {ary,PName,Dim},
 	{{_,_,ValAry},_} = case chkDefESTbyKeyFromSTA(Ary, {CEnv,STA}) of
 		true -> envESTbyKeyFromSTA(Ary, {CEnv,STA});
 		false -> fail(["Parameter Array Not Declared", Ary])
 	end,
 	userLogging({writ,{Ary,lists:map(fun format/1,ValAry)}}, STA), 
-	writeStream(L, {CEnv,appendOUTinSTA(lists:map(fun format/1,ValAry), STA)});
-writeStream([E|L], {CEnv,STA}) -> 
+	writeStream(L, {CExQ,{CEnv,appendOUTinSTA(lists:map(fun format/1,ValAry), STA)}});
+writeStream([E|L], {CExQ,{CEnv,STA}}) -> 
 	userLogging({eval,E,CEnv}, STA),
-	{Val,STA1} = evalExp(E, {CEnv,STA}), 
+	{Val,STA1} = evalExp(E, {CExQ,{CEnv,STA}}), 
 	userLogging({valu,Val}, STA1),
 	userLogging({writ,format(Val)}, STA1),
 	writeStream(L, {CEnv,appendOUTinSTA(format(Val), STA1)}).
 
 appendOUTinSTA(A, {Q,IN,OUT,EST}) -> {Q,IN,[A|OUT],EST}.
 
-writeConsle([], {_,STA}) -> io:format("~n"), STA;
-writeConsle([{string,S}|L], {CEnv,STA}) -> 
+writeConsle([], {_,{_,STA}}) -> io:format("~n"), STA;
+writeConsle([{string,S}|L], {CExQ,{CEnv,STA}}) -> 
 	userLogging({prin,list_to_atom(S)}, STA), 
-	io:format(S,[]), writeConsle(L, {CEnv,STA});
-writeConsle([{pary,PName,Dim}|L], {CEnv,STA}) -> 
+	io:format(S,[]), writeConsle(L, {CExQ,{CEnv,STA}});
+writeConsle([{pary,PName,Dim}|L], {CExQ,{CEnv,STA}}) -> 
 	Ary = {ary,PName,Dim},
 	{{Type,_,ValAry},_} = case chkDefESTbyKeyFromSTA(Ary, {CEnv,STA}) of
 		true -> envESTbyKeyFromSTA(Ary, {CEnv,STA});
@@ -465,44 +483,48 @@ writeConsle([{pary,PName,Dim}|L], {CEnv,STA}) ->
 	end,
 	userLogging({prin,{Ary,lists:map(fun format/1,ValAry)}}, STA), 
 	io:format("~p ",[{Type,lists:map(fun format/1,ValAry)}]), 
-	writeConsle(L, {CEnv,STA});
-writeConsle([E|L], {CEnv,STA}) -> 
+	writeConsle(L, {CExQ,{CEnv,STA}});
+writeConsle([E|L], {CExQ,{CEnv,STA}}) -> 
 	userLogging({eval,E,CEnv}, STA),
-	{Val,STA1} = evalExp(E, {CEnv,STA}), 
+	{Val,STA1} = evalExp(E, {CExQ,{CEnv,STA}}), 
 	userLogging({valu,Val}, STA1),
 	userLogging({prin,format(Val)}, STA1),
 	io:format("~p",[format(Val)]), 
-	writeConsle(L, {CEnv,STA1}).
+	writeConsle(L, {CExQ,{CEnv,STA1}}).
 
 format({int,N}) -> N;
 format({var,V}) -> V;
 format(Val) -> Val.
 
-printStatus({CEnv,STA}) -> 
-	userLogging({stat,{CEnv,STA}}, STA),
-	io:format("~p~n", [STA]), STA.
+printStatus({CExQ,{CEnv,STA}}) -> 
+	userLogging({stat,{CExQ,{CEnv,STA}}}, STA),
+	io:format("~p~n", [{CExQ,{CEnv,STA}}]), STA.
 
-funcCall(read, [], {_,STA}) -> readStream(STA);
-funcCall(input, [Prompt], {_,STA}) -> readConsle(Prompt, STA);
-funcCall(random, [E], {CEnv,STA}) ->
+funcCall(read, [], {_,{_,STA}}) -> readStream(STA);
+funcCall(input, [Prompt], {_,{_,STA}}) -> readConsle(Prompt, STA);
+funcCall(random, [E], {CExQ,{CEnv,STA}}) ->
 	userLogging({eval,E,CEnv}, STA),
-	{Val,STA1} = evalExp(E, {CEnv,STA}),
+	{Val,STA1} = evalExp(E, {CExQ,{CEnv,STA}}),
 	userLogging({valu,Val}, STA1),
 	getRandom(Val, STA1);
-
-
-funcCall(FuncName, PL, {CEnv,STA}) -> 
+funcCall(FuncName, PL, {CExQ,{CEnv,STA}}) -> 
 	Func = {func,FuncName,length(PL)},
 	{{TypeFunc,VPL,ST},_} = case chkDefESTbyKeyFromSTA(Func, {CEnv,STA}) of
 		true -> envESTbyKeyFromSTA(Func, {CEnv,STA});
 		false -> fail(["Undefined Function", Func])
 	end,
 	{ERef,_} = NewEnv = getNewEmptyEnv(CEnv),
-	{[Q1|EQ1],IN1,OUT1,EST1} = parMatch(PL, VPL, ERef, CEnv, addEnv2ESTinSTA(NewEnv, STA)),
-	{EQ2,IN2,OUT2,[{returnVal,{TypeVal,Val}}|EST2]} = exec({[[{ST,ERef}]|EQ1], IN1, OUT1, EST1}),
-	case TypeFunc==TypeVal of 
-		true -> userLogging({exit,ST}, {[Q1|EQ2],IN2,OUT2,EST2}), {{TypeVal,Val},{[Q1|EQ2],IN2,OUT2,EST2}};
-		false -> fail(["Return Value Tpe Mismatch", Func, {TypeVal,Val}])
+	{EQL1,IN1,OUT1,EST1} = parMatch(PL, VPL, ERef, CEnv, {CExQ,addEnv2ESTinSTA(NewEnv, STA)}),
+	{CExQ,{PRef,ChL,Q}} = getExQByRef(CExQ, EQL1),
+	EQL2 = replaceEQLbyKey(CExQ, EQL1, {CExQ,{PRef,ChL,Q}}),
+	STA2 = {[{returnVal,ExQ,{TypeVal,Val}}|EQL3],IN2,OUT2,EST2} = exec({EQL2, IN1, OUT1, EST1}),
+	case ExQ==CExQ of
+		true -> case TypeFunc==TypeVal of 
+				true -> userLogging({exit,ST}, {[{CExQ,{PRef,ChL,Q}}|EQL2],IN2,OUT2,EST2}), 
+						{{TypeVal,Val},{[{CExQ,{PRef,ChL,Q}}|EQL3],IN2,OUT2,EST2}};
+				false -> fail(["Return Value Tpe Mismatch", Func, {TypeVal,Val}])
+			end;
+		false -> exec(shchedule(scheduleSW(), STA2))
 	end;
 funcCall(FuncName, PL, _) -> Func = {func,FuncName,length(PL)}, fail(["Illegal Function Call", Func]).
 
@@ -524,17 +546,17 @@ getRandom({int,Val}, STA) -> {{int,random:uniform(Val)},STA};
 getRandom(Val, _) -> fail(["Illigal Parameter in random function", Val]).
 
 
-decVars([], {_,STA}) -> STA;
-decVars([{var,_}=Var|DL], {CEnv,STA}) -> 
+decVars([], {_,{_,STA}}) -> STA;
+decVars([{var,_}=Var|DL], {CExQ,{CEnv,STA}}) -> 
 	{CEnv,{PEnvRef,Env}} = getEnvByRefFromSTA(CEnv, STA),
 	case chkDef(Var, Env) of
 		true -> fail(["Double defined in block!!", Var]);
 		false -> STA1 = replaceESTbyKeyInSTA(CEnv, STA, {CEnv,{PEnvRef,[{Var,{int,undefined}}|Env]}}),
-			decVars(DL, {CEnv,STA1})
+			decVars(DL, {CExQ,{CEnv,STA1}})
 	end;
-decVars([{ary,V,[E]}|DL], {CEnv,STA}) -> 
+decVars([{ary,V,[E]}|DL], {CExQ,{CEnv,STA}}) -> 
 	userLogging({eval,E,CEnv}, STA),
-	{{Type,Val},STA1} = evalExp(E, {CEnv,STA}),
+	{{Type,Val},STA1} = evalExp(E, {CExQ,{CEnv,STA}}),
 	userLogging({valu,{Type,Val}}, STA1),
 	case Type of
 		int -> Val;
@@ -545,11 +567,11 @@ decVars([{ary,V,[E]}|DL], {CEnv,STA}) ->
 	case chkDef(Ary, Env1) of
 		true -> fail(["Double defined in block!!", Ary]);
 		false -> STA2 = replaceESTbyKeyInSTA(CEnv, STA1, {CEnv,{PEnvRef,[{Ary,{int,[Val],makeAry(Val,{int,undefined})}}|Env1]}}),
-				decVars(DL, {CEnv,STA2})
+				decVars(DL, {CExQ,{CEnv,STA2}})
 	end;
-decVars([{ary,V,[E],Default}|DL], {CEnv,STA}) -> 
+decVars([{ary,V,[E],Default}|DL], {CExQ,{CEnv,STA}}) -> 
 	userLogging({eval,E,CEnv}, STA),
-	{{Type,Val},STA1} = evalExp(E, {CEnv,STA}),
+	{{Type,Val},STA1} = evalExp(E, {CExQ,{CEnv,STA}}),
 	userLogging({valu,{Type,Val}}, STA1),
 	case Type of
 		int -> Val;
@@ -560,9 +582,9 @@ decVars([{ary,V,[E],Default}|DL], {CEnv,STA}) ->
 	case chkDef({ary,V,1}, Env1) of
 		true -> fail(["Double defined in block!!", Ary]);
 		false -> STA2 = replaceESTbyKeyInSTA(CEnv, STA1, {CEnv,{PEnvRef,[{Ary,{int,[Val],makeAry(Val,Default)}}|Env1]}}),
-				decVars(DL, {CEnv,STA2})
+				decVars(DL, {CExQ,{CEnv,STA2}})
 	end;
-decVars([Dec|_], {_,_}) -> fail(["Illegal Declearation!!", Dec]).
+decVars([Dec|_], _) -> fail(["Illegal Declearation!!", Dec]).
 
 
 % semAry({V,[E]}, {CEnv,STA}) ->
@@ -608,10 +630,10 @@ popEST([]) -> empty.
 topEST([Env|_]) -> Env;
 topEST([]) -> empty.
 
-rmEnvByRefFromSTA(CEnv, {EQ,IN,OUT,EST}) -> {EQ,IN,OUT,del(CEnv, EST)}.
-rmEnvByRef(CEnv, EST) -> del(CEnv, EST).
-% rmEnvByRefFromSTA(_, {EQ,IN,OUT,EST}) -> {EQ,IN,OUT,EST}.
-% rmEnvByRef(_, EST) -> EST.
+% rmEnvByRefFromSTA(CEnv, {EQ,IN,OUT,EST}) -> {EQ,IN,OUT,del(CEnv, EST)}.
+% rmEnvByRef(CEnv, EST) -> del(CEnv, EST).
+rmEnvByRefFromSTA(_, {EQ,IN,OUT,EST}) -> {EQ,IN,OUT,EST}.
+rmEnvByRef(_, EST) -> EST.
 
 addEnv2ESTinSTA(Env, {EQ,IN,OUT,EST}) -> {EQ,IN,OUT,[Env|EST]}.
 
@@ -655,10 +677,11 @@ getNewEmptyExQ(RefParent) ->
 getExQByRef(Ref, EQL) -> {Ref,proplists:get_value(Ref, EQL)}.
 getExQByRefFromSTA(Ref, {EQL,_,_,_}) -> {Ref,proplists:get_value(Ref, EQL)}.
 
-pushST2ExQinSTA(ST, {[Q|EQL],IN,OUT,EST}) -> 
+pushST2ExQinSTA(ST, {CExQ,{EQL,IN,OUT,EST}}) -> 
+	ExQ = getExQByRef(CExQ, EQL),
 	case is_list(ST) of
-		true -> {[pushSTL2ExQ(Q, ST)|EQL],IN,OUT,EST};
-		false -> {[pushST2ExQ(Q, ST)|EQL],IN,OUT,EST}
+		true -> {[pushSTL2ExQ(ExQ, ST)|proplists:delete(CExQ,EQL)],IN,OUT,EST};
+		false -> {[pushST2ExQ(ExQ, ST)|proplists:delete(CExQ,EQL)],IN,OUT,EST}
 	end.
 
 pushST2ExQ({CExQ,{PRef,ChL,Q}},ST) -> {CExQ,{PRef,ChL,[ST|Q]}}.
@@ -672,8 +695,11 @@ topEQL([]) -> fail("Pop from empty ExQ").
 
 rmThreadRefFormParentExQinEQL([], _, EQL) -> EQL;
 rmThreadRefFormParentExQinEQL(ExQRef, ChRef, EQL) ->
-	{ExQRef,{PRef,ChList,Q}} = getExQByRef(ExQRef, EQL),
-	replaceEQLbyKey(ExQRef, EQL, {ExQRef,{PRef,lists:delete(ChRef, ChList),Q}}).
+	case getExQByRef(ExQRef, EQL) of
+		{_,undefined} -> EQL;
+		{ExQRef,{PRef,ChList,Q}} ->
+			replaceEQLbyKey(ExQRef, EQL, {ExQRef,{PRef,lists:delete(ChRef, ChList),Q}})
+	end.
 
 rmExQByRefFromSTA(CExQ, {EQL,IN,OUT,EST}) -> {proplists:delete(CExQ, EQL),IN,OUT,EST}.
 rmExQByRef(CExQ, EQL) -> proplists:delete(CExQ, EQL).
