@@ -15,6 +15,7 @@
 			temp = s[i]; s[i]=s[ls]; s[ls]=temp;
 			thread qsort(ft, i-1);
 			thread qsort(i+1, ls);
+			% wait;
 			% printStatus();
 			% qsort(ft, i-1);
 			% qsort(i+1, ls);

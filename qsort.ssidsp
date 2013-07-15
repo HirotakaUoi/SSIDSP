@@ -20,7 +20,7 @@
 		}
 	};
 % Start Main	
-	read(n); 
+	int n=read(); 
 	{
 		int s[n];
 		for(k=1; k=<n; k=k+1) {
