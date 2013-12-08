@@ -4,6 +4,7 @@
 sem({P,_}) -> sem(P, []);
 sem(P) -> sem(P, []).
 
+sem({blk,_,L}, Env) -> sem(L, Env);
 sem([], Env) -> Env;
 sem([S|SS], Env) -> Env1 = sem(S, Env), sem(SS, Env1);
 sem({def,V,E}, Env) -> 
@@ -34,7 +35,7 @@ chkDef(V, [_|L]) -> chkDef(V, L).
 % del(V, L) -> proplists:delete(V, L).
 del(_, []) -> [];
 del({var,N}, [{{var,N},_}|L]) -> L;
-del(V, [_|L]) -> del(V, L).
+del(V, [B|L]) -> [B|del(V, L)].
 
 % env(V,L) -> proplists:get_value(V, L).
 env({var,N}, [{{var,N},V}|L]) -> V;
